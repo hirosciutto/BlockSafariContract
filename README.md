@@ -1,13 +1,9 @@
-# Sample Hardhat Project
+# Block Safari
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a script that deploys that contract.
+このコントラクトコードによって、
+ANIMALS,PARKS,ITEMS(provisional)の３つのコントラクトがデプロイされます。
 
-Try running some of the following tasks:
-
-```shell
-npx hardhat help
-npx hardhat test
-REPORT_GAS=true npx hardhat test
-npx hardhat node
-npx hardhat run scripts/deploy.js
-```
+contracts/upgradeable/Sale.sol をデプロイし、
+そのコントラクトアドレスをcontracts/BlockSafari.solの第一引数に指定してデプロイします。
+それぞれのロジックコードにバグが発生した場合は、Sale.solを修正したコントラクトをデプロイして、
+BlockSafariコントラクトでupdateToメソッドを使用してロジックコントラクトを置換します。

@@ -62,36 +62,6 @@ contract Sale is ERC721Wrapper {
     }
 
     /**
-     * feeを払ってアイテムをMINTする
-     */
-    function agentMint(
-        bytes calldata _signature, // 署名
-        uint256 _tokenId,
-        uint256 _fee,
-        uint256 _nonce
-    ) onlyAgent {
-        require(signatures[_signature] == false);
-        bytes32 hashedTx = agentPutUpPreSignedHashing(_tokenId, _feeRate, _value, _nonce);
-        address from = ECDSA.recover(hashedTx, _signature);
-        require(from != address(0));
-        _safeMint(from, _tokenId);
-    }
-
-    function agentMintPreSignedHashing(
-        uint256 _tokenId,
-        uint256 _fee,
-        uint256 _nonce
-    )
-        private
-        pure
-        virtual
-        returns (bytes32)
-    {
-        /* "0xbbfee4d4": agentMintPreSignedHashing(uint256,uint256,uint256) */
-        return keccak256(abi.encodePacked(bytes4(0xbbfee4d4), _tokenId, _fee, _nonce));
-    }
-
-    /**
     * 指定アドレスから出品中の商品を取得
     */
     function getListed(address _target) public view virtual returns (uint256[] memory) {

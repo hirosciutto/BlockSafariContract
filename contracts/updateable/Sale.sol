@@ -225,4 +225,21 @@ contract Sale is ERC721Wrapper {
         emit ExternalBuy(_purchaser, _seller, _tokenId, amount);
         return true;
     }
+
+    /**
+    * 外部からのmint要請
+    */
+    function externalMint(
+        address _minter
+        uint256 _tokenId
+    )
+        external
+        virtual
+        onlyToken
+        returns(bool)
+    {
+        require(!paused, "this contract is paused now");
+        _safeMint(_minter, tokenId);
+        return true;
+    }
 }

@@ -28,6 +28,7 @@ contract Sale is ERC721Wrapper {
      * 機能の停止
      */
     function pause() public virtual onlyOwner {
+        require(!paused);
         paused = true;
     }
 
@@ -35,6 +36,7 @@ contract Sale is ERC721Wrapper {
      * 機能の解除
      */
     function restart() public virtual onlyOwner {
+        require(paused);
         paused = false;
     }
 
@@ -122,28 +124,6 @@ contract Sale is ERC721Wrapper {
         emit List(msg.sender, _tokenId, _value);
     }
 
-    function _list(
-        address _from,
-        uint256 _tokenId,
-        uint256 _feeRate,
-        uint256 _value,
-    )
-        external
-        virtual
-    {
-        require(!paused);
-        require(salesRegulationCanceled > 0 || _admin[0][_from] || _owner == _from, "you don't have authority of sale");
-        require(ownerOf(_tokenId) == _from, "not owned"); // NFTの所有確認
-        require(_feeRate > 0 && _feeRate < 100, "invalid fee rate");
-
-        // 金額を指定
-        itemOnSale[currency_token][_from][_tokenId].value = _value;
-        // 実行者を記録
-        itemOnSale[currency_token][_from][_tokenId].sender = msg.sender;
-        // feeRate記録
-        itemOnSale[currency_token][_from][_tokenId].feeRate = _feeRate;
-    }
-
     /**
     * 指定の金額で出品
     * 無料で出品できるが、購入額の5%が手数料として差し引かれる
@@ -159,17 +139,16 @@ contract Sale is ERC721Wrapper {
         virtual
     {
         require(_admin[1][msg.sender] == true || agentListRegulationCanceled, "you are not agent");
-        require(signatures[_signature] == false);
+        require(signatures[_signature] == false, "used signature");
+        require(_value > 0, "cannot sell free");
         bytes32 hashedTx = agentPutUpPreSignedHashing(_tokenId, _feeRate, _value, _nonce);
         address from = ECDSA.recover(hashedTx, _signature);
-        require(from != address(0));
+        require(from != address(0), "invalid signature");
 
         _list(from, _tokenId, _feeRate, _value);
         signatures[_signature] = true;
         emit AgentList(from, _tokenId, _value, msg.sender);
     }
-
-
 
     function agentListPreSignedHashing(
         uint256 _tokenId,
@@ -186,19 +165,41 @@ contract Sale is ERC721Wrapper {
         return keccak256(abi.encodePacked(bytes4(0xbbfee4d4), _tokenId, _feeRate, _value, _nonce));
     }
 
+    function _list(
+        address _from,
+        uint256 _tokenId,
+        uint256 _feeRate,
+        uint256 _value,
+    )
+        external
+        virtual
+    {
+        require(!paused, "this contract is paused now");
+        require(salesRegulationCanceled > 0 || _admin[0][_from] || _owner == _from, "you don't have authority of sale");
+        require(ownerOf(_tokenId) == _from, "not owned"); // NFTの所有確認
+        require(_feeRate > 0 && _feeRate < 100, "invalid fee rate");
+
+        // 金額を指定
+        itemOnSale[currency_token][_from][_tokenId].value = _value;
+        // 実行者を記録
+        itemOnSale[currency_token][_from][_tokenId].sender = msg.sender;
+        // feeRate記録
+        itemOnSale[currency_token][_from][_tokenId].feeRate = _feeRate;
+    }
+
     /**
      * 出品の取り下げ
      */
     function stopListing(uint256 _tokenId) public virtual {
-        require(!paused);
+        require(!paused, "this contract is paused now");
         require(itemOnSale[currency_token][msg.sender][_tokenId].value > 0, "you are not listing");
         _stopListing(msg.sender, _tokenId);
     }
 
     function _stopListing(address _seller, uint256 _tokenId) internal virtual {
-        require(currency_token != address(0));
-        require(_seller != address(0));
-        require(_tokenId > 0);
+        require(currency_token != address(0), "this token is disabled");
+        require(_seller != address(0), "invalid seller");
+        require(_tokenId > 0, "invalid token id");
         itemOnSale[currency_token][_seller][_tokenId].value = 0;
         emit List(_seller, _tokenId, 0);
     }
@@ -214,9 +215,10 @@ contract Sale is ERC721Wrapper {
         external
         virtual
         onlyToken
+        returns(bool)
     {
-        require(!paused);
-        require(itemOnSale[currency_token][_seller][_tokenId].value > 0);
+        require(!paused, "this contract is paused now");
+        require(itemOnSale[currency_token][_seller][_tokenId].value > 0, "not in sale");
         _safeTransfer(from, _to, _tokenId, data);
         uint256 amount = itemOnSale[currency_token][_seller][_tokenId].value;
         _stopListing(_seller, _tokenId);

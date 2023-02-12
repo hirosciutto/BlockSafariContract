@@ -1,16 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "../utils/ERC721Wrapper.sol";
 import "@openzeppelin/contracts-upgradeable/utils/Strings.sol";
 import "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import "../utils/ERC721Wrapper.sol";
 
-contract Sale is ERC721Wrapper {
+/**
+ * Login Contract
+ */
+contract Sales is UUPSUpgradeable, ERC721Wrapper {
 
     event List(address indexed _from, uint256 _tokenId, uint256 _amount);
     event AgentList(address indexed _from, uint256 _tokenId, uint256 _amount, address _agent);
     event ExternalBuy(address indexed _from, address indexed _to, uint256 _tokenId, uint256 _amount);
+    event ExternalMint(address indexed _minter, uint256 _tokenId);
 
     modifier onlyToken() {
         require(currency_token == msg.sender);

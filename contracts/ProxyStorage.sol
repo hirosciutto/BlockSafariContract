@@ -5,9 +5,6 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 contract ProxyStorage is Initializable {
 
-    // ロジック格納コントラクト
-    address internal logic_contract;
-
     // 購入に使用可能なERC20トークンのアドレス
     address internal currency_token;
 

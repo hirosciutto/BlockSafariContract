@@ -7,25 +7,38 @@
 const hre = require("hardhat");
 
 async function main() {
-  const currentTimestampInSeconds = Math.round(Date.now() / 1000);
-  const ONE_YEAR_IN_SECS = 365 * 24 * 60 * 60;
-  const unlockTime = currentTimestampInSeconds + ONE_YEAR_IN_SECS;
 
-  const lockedAmount = hre.ethers.utils.parseEther("1");
+  // Logicコントラクトをデプロイ
+  const Sales = await hre.ethers.getContractFactory("Sales");
+  const sales = await Sales.deploy();
+  await sales.deployed();
+  console.log("Sales deployed to:", sales.address);
 
-  const Lock = await hre.ethers.getContractFactory("Lock");
-  const lock = await Lock.deploy(unlockTime, { value: lockedAmount });
+  // Proxyコントラクトデプロイ
+  const ERC1967Proxy = await hre.ethers.getContractFactory("BlockSafari");
+  const erc1967Proxy = await ERC1967Proxy.deploy(
+    'ANIMALS',
+    'ANIMALS',
+    'https://blocksafari.online/img/data/ANIMALS',
+    sales.address);
+  await erc1967Proxy.deployed();
 
-  await lock.deployed();
+  console.log("ERC1967Proxy deployed to:", erc1967Proxy.address);
 
-  console.log(
-    `Lock with 1 ETH and unlock timestamp ${unlockTime} deployed to ${lock.address}`
+  const myContractProxy = await ethers.getContractAt(
+    'Sales',
+    erc1967Proxy.address,
   );
+  const name = await myContractProxy.name();
+  console.log('name is', name.toString());
 }
 
 // We recommend this pattern to be able to use async/await everywhere
 // and properly handle errors.
-main().catch((error) => {
+main()
+.then(() => process.exit(0))
+.catch((error) => {
   console.error(error);
-  process.exitCode = 1;
+  process.exit(1);
+
 });

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.4;
 
 import "./ERC721Upgradeable.sol";
+import "./Admin.sol";
 
 contract ERC721Wrapper is ERC721Upgradeable,Admin {
 

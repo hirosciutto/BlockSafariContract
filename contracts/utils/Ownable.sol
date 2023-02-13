@@ -24,7 +24,7 @@ abstract contract Ownable is ProxyStorage {
      * Internal function without access restriction.
      */
     function _transferOwnership(address newOwner) internal virtual {
-        address oldOwner = owner;
+        address oldOwner = _owner;
         _owner = newOwner;
         emit OwnershipTransferred( oldOwner, newOwner);
     }

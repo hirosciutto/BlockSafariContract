@@ -30,6 +30,8 @@ contract ProxyStorage is Initializable {
     string internal _name;
     // Token symbol
     string internal _symbol;
+    // Token Image URI path
+    string internal _uri;
     // Mapping from token ID to owner address
     mapping(uint256 => address) internal _owners;
     // Mapping owner address to token count
@@ -50,9 +52,9 @@ contract ProxyStorage is Initializable {
     // 出品中アイテム: mapping(使用可能トークン => mapping(出品者address=>(tokenId => 価格)))
     mapping(address => mapping(address => mapping(uint256 => Sales))) internal itemOnSale;
     struct Sales {
-        uint256 value,
-        uint256 feeRate,
-        address sender
+        uint256 value;
+        uint256 feeRate;
+        address sender;
     }
     // 販売規制解除 0:規制 1:解除
     uint8 salesRegulationCanceled;

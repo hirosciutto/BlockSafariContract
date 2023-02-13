@@ -31,14 +31,14 @@ abstract contract Admin is Ownable {
         _;
     }
 
-    function addAgent(address member) public virtual onlyAdmin {
+    function addAgent(address newMember) public virtual onlyAdmin {
         require(newMember != address(0), "new agent member is the zero address");
-        _admin[1][member] = true;
+        _admin[1][newMember] = true;
     }
 
-    function removeAgent(address member) public virtual onlyAdmin {
+    function removeAgent(address newMember) public virtual onlyAdmin {
         require(newMember != address(0), "agent member is the zero address");
-        _admin[1][member] = false;
+        _admin[1][newMember] = false;
     }
 
 }

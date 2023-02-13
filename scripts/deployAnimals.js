@@ -16,11 +16,14 @@ async function main() {
 
   // Proxyコントラクトデプロイ
   const ERC1967Proxy = await hre.ethers.getContractFactory("BlockSafari");
+  const data = Sales.interface.encodeFunctionData('initialize',[
+    'ANIMALS',
+    'ANIMALS',
+    'https://blocksafari.online/img/data/ANIMALS'
+  ]);
   const erc1967Proxy = await ERC1967Proxy.deploy(
-    'ANIMALS',
-    'ANIMALS',
-    'https://blocksafari.online/img/data/ANIMALS',
-    sales.address);
+    sales.address,
+    data);
   await erc1967Proxy.deployed();
 
   console.log("ERC1967Proxy deployed to:", erc1967Proxy.address);

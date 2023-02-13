@@ -13,7 +13,7 @@ contract ERC721Wrapper is ERC721Upgradeable,Admin {
         _requireMinted(tokenId);
 
         string memory baseURI = _baseURI();
-        return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId.toString(), ".json")) : "";
+        return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId, ".json")) : "";
     }
 
     /**
@@ -36,7 +36,7 @@ contract ERC721Wrapper is ERC721Upgradeable,Admin {
         //solhint-disable-next-line max-line-length
         require(_isApprovedOrOwner(_msgSender(), tokenId), "ERC721: caller is not token owner nor approved");
         require(!paused, "this contract is paused now"); // 停止確認
-        require(itemOnSale[currency_token][from][tokenId] == 0, "this token is listed");
+        require(itemOnSale[currency_token][from][tokenId].value == 0, "this token is listed");
         _transfer(from, to, tokenId);
     }
 
@@ -62,7 +62,7 @@ contract ERC721Wrapper is ERC721Upgradeable,Admin {
     ) public virtual override {
         require(_isApprovedOrOwner(_msgSender(), tokenId), "ERC721: caller is not token owner nor approved");
         require(!paused, "this contract is paused now"); // 停止確認
-        require(itemOnSale[currency_token][from][tokenId] == 0, "this token is listed");
+        require(itemOnSale[currency_token][from][tokenId].value == 0, "this token is listed");
         _safeTransfer(from, to, tokenId, data);
     }
 

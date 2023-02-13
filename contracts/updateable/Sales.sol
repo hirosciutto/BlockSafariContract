@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "@openzeppelin/contracts-upgradeable/utils/Strings.sol";
-import "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts-upgradeable/utils/StringsUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "../utils/ERC721Wrapper.sol";
 
@@ -20,6 +20,19 @@ contract Sales is UUPSUpgradeable, ERC721Wrapper {
     modifier onlyToken() {
         require(currency_token == msg.sender);
         _;
+    }
+
+    constructor() {}
+
+    function initialize(
+        string memory name_,
+        string memory symbol_,
+        string memory uri_
+    ) public initializer {
+        // name,symbol,データのURL設定
+        _name = name_;
+        _symbol = symbol_;
+        _uri = uri_;
     }
 
     /**
@@ -64,7 +77,7 @@ contract Sales is UUPSUpgradeable, ERC721Wrapper {
     /**
      * 指定アドレスのトークン所有履歴のリストを取得
      */
-    function getAssetLog(address _target) public virtual returns(uint256[] memory) {
+    function getAssetLog(address _target) public view virtual returns(uint256[] memory) {
         return assetLog[_target];
     }
 
@@ -98,7 +111,15 @@ contract Sales is UUPSUpgradeable, ERC721Wrapper {
     /**
      * 出品を確認
      */
-    function checkSale(address _currency, uint256 _tokenId, uint256 _amount) public returns(address, address, uint256) {
+    function checkSale(
+        address _currency,
+        uint256 _tokenId,
+        uint256 _amount
+    )
+    public
+    view
+    returns(address, address, uint256)
+    {
         address _seller = ownerOf(_tokenId);
         if (_currency == currency_token && itemOnSale[currency_token][_seller][_tokenId].value > _amount) {
             return (
@@ -112,20 +133,18 @@ contract Sales is UUPSUpgradeable, ERC721Wrapper {
     }
 
     /**
-    * 指定の金額で出品
+    * 指定の金額で出品(自身でgas支払う必要あり)
     * gasが必要だが手数料は2.5%
     */
     function list(
         uint256 _tokenId, // 売りたいトークン
         uint256 _feeRate, // 何パーセントを仲介者に支払うか
-        uint256 _value, // いくら(トークン単位)で売りたいか
-        uint256 _nonce
+        uint256 _value // いくら(トークン単位)で売りたいか
     )
         external
         virtual
     {
         _list(msg.sender, _tokenId, _feeRate, _value);
-        signatures[_signature] = true;
         emit List(msg.sender, _tokenId, _value);
     }
 
@@ -143,11 +162,11 @@ contract Sales is UUPSUpgradeable, ERC721Wrapper {
         external
         virtual
     {
-        require(_admin[1][msg.sender] == true || agentListRegulationCanceled, "you are not agent");
+        require(_admin[1][msg.sender] == true || agentListRegulationCanceled == 1, "you are not agent");
         require(signatures[_signature] == false, "used signature");
         require(_value > 0, "cannot sell free");
-        bytes32 hashedTx = agentPutUpPreSignedHashing(_tokenId, _feeRate, _value, _nonce);
-        address from = ECDSA.recover(hashedTx, _signature);
+        bytes32 hashedTx = agentListPreSignedHashing(_tokenId, _feeRate, _value, _nonce);
+        address from = ECDSAUpgradeable.recover(hashedTx, _signature);
         require(from != address(0), "invalid signature");
 
         _list(from, _tokenId, _feeRate, _value);
@@ -163,7 +182,6 @@ contract Sales is UUPSUpgradeable, ERC721Wrapper {
     )
         private
         pure
-        virtual
         returns (bytes32)
     {
         /* "0xbbfee4d4": agentListPreSignedHashing(uint256,uint256,uint256,uint256) */
@@ -174,10 +192,9 @@ contract Sales is UUPSUpgradeable, ERC721Wrapper {
         address _from,
         uint256 _tokenId,
         uint256 _feeRate,
-        uint256 _value,
+        uint256 _value
     )
-        external
-        virtual
+        private
     {
         require(!paused, "this contract is paused now");
         require(salesRegulationCanceled > 0 || _admin[0][_from] || _owner == _from, "you don't have authority of sale");
@@ -193,7 +210,7 @@ contract Sales is UUPSUpgradeable, ERC721Wrapper {
     }
 
     /**
-     * 出品の取り下げ
+     * 出品の取り下げ(自身でgas支払う必要あり)
      */
     function stopListing(uint256 _tokenId) public virtual {
         require(!paused, "this contract is paused now");
@@ -214,7 +231,7 @@ contract Sales is UUPSUpgradeable, ERC721Wrapper {
     */
     function externalBuy(
         address _purchaser,
-        address _seller
+        address _seller,
         uint256 _tokenId
     )
         external
@@ -224,7 +241,7 @@ contract Sales is UUPSUpgradeable, ERC721Wrapper {
     {
         require(!paused, "this contract is paused now");
         require(itemOnSale[currency_token][_seller][_tokenId].value > 0, "not in sale");
-        _safeTransfer(from, _to, _tokenId, data);
+        _safeTransfer(_seller, _purchaser, _tokenId, "");
         uint256 amount = itemOnSale[currency_token][_seller][_tokenId].value;
         _stopListing(_seller, _tokenId);
         emit ExternalBuy(_purchaser, _seller, _tokenId, amount);
@@ -235,7 +252,7 @@ contract Sales is UUPSUpgradeable, ERC721Wrapper {
     * 外部からのmint要請
     */
     function externalMint(
-        address _minter
+        address _minter,
         uint256 _tokenId
     )
         external
@@ -244,7 +261,9 @@ contract Sales is UUPSUpgradeable, ERC721Wrapper {
         returns(bool)
     {
         require(!paused, "this contract is paused now");
-        _safeMint(_minter, tokenId);
+        _safeMint(_minter, _tokenId);
         return true;
     }
+
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 }

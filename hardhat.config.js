@@ -1,5 +1,6 @@
 require("@nomicfoundation/hardhat-toolbox");
 require('@openzeppelin/hardhat-upgrades');
+require("hardhat-gas-reporter");
 require('dotenv').config();
 const { mnemonic, REPORT_GAS, COINMARKETCAP_API_KEY } = process.env;
 
@@ -9,7 +10,7 @@ module.exports = {
     enabled: REPORT_GAS ? true : false,
     currency: "JPY",
     gasPriceApi:
-      "https://api.etherscan.io/api?module=proxy&action=eth_gasPrice",
+      "https://api.polygonscan.com/api?module=proxy&action=eth_gasPrice",
     coinmarketcap: COINMARKETCAP_API_KEY,
   },
   solidity: {

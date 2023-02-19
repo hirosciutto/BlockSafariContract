@@ -8,9 +8,9 @@ const { mnemonic, REPORT_GAS, COINMARKETCAP_API_KEY } = process.env;
 module.exports = {
   gasReporter: {
     enabled: REPORT_GAS ? true : false,
-    currency: "JPY",
+    currency: "MATIC",
     gasPriceApi:
-      "https://api.polygonscan.com/api?module=proxy&action=eth_gasPrice",
+      "https://api-testnet.polygonscan.com/api?module=proxy&action=eth_gasPrice",
     coinmarketcap: COINMARKETCAP_API_KEY,
   },
   solidity: {

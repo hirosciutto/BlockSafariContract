@@ -116,9 +116,10 @@ contract Sales is UUPSUpgradeable, ERC721Wrapper {
         uint256 _tokenId,
         uint256 _amount
     )
-    public
-    view
-    returns(address, address, uint256)
+        public
+        virtual
+        view
+        returns(address, address, uint256)
     {
         address _seller = ownerOf(_tokenId);
         if (_currency == currency_token && itemOnSale[currency_token][_seller][_tokenId].value > _amount) {
@@ -200,6 +201,7 @@ contract Sales is UUPSUpgradeable, ERC721Wrapper {
         require(salesRegulationCanceled > 0 || _admin[0][_from] || _owner == _from, "you don't have authority of sale");
         require(ownerOf(_tokenId) == _from, "not owned"); // NFTの所有確認
         require(_feeRate > 0 && _feeRate < 100, "invalid fee rate");
+        require(_tokenApprovals[_tokenId] == _from || _tokenApprovals[_tokenId] == address(0), "this is approved.");
 
         // 金額を指定
         itemOnSale[currency_token][_from][_tokenId].value = _value;
@@ -240,7 +242,7 @@ contract Sales is UUPSUpgradeable, ERC721Wrapper {
         returns(bool)
     {
         require(!paused, "this contract is paused now");
-        require(itemOnSale[currency_token][_seller][_tokenId].value > 0, "not in sale");
+        require(itemOnSale[currency_token][_seller][_tokenId].value > 0, "not for sale");
         _safeTransfer(_seller, _purchaser, _tokenId, "");
         uint256 amount = itemOnSale[currency_token][_seller][_tokenId].value;
         _stopListing(_seller, _tokenId);

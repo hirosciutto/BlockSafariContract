@@ -89,6 +89,8 @@ contract ERC721Upgradeable is ProxyStorage, ContextUpgradeable, ERC165Upgradeabl
             "ERC721: approve caller is not token owner nor approved for all"
         );
 
+        require(itemOnSale[currency_token][owner][tokenId].value == 0, "now on sale");
+
         _approve(to, tokenId);
     }
 

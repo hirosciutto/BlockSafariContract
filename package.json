@@ -20,5 +20,8 @@
     "@nomicfoundation/hardhat-chai-matchers": "^1.0.6",
     "@openzeppelin/contracts": "^4.7.3",
     "dotenv": "^16.0.3"
+  },
+  "volta": {
+    "node": "18.14.2"
   }
 }

@@ -6,13 +6,12 @@ const { mnemonic, REPORT_GAS, COINMARKETCAP_API_KEY } = process.env;
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
-  gasReporter: {
-    enabled: REPORT_GAS ? true : false,
-    currency: "MATIC",
-    gasPriceApi:
-      "https://api-testnet.polygonscan.com/api?module=proxy&action=eth_gasPrice",
-    coinmarketcap: COINMARKETCAP_API_KEY,
-  },
+  // gasReporter: {
+  //   enabled: REPORT_GAS ? true : false,
+  //   currency: "MATIC",
+  //   gasPriceApi: "https://api-testnet.polygonscan.com/api?module=proxy&action=eth_gasPrice",
+  //   coinmarketcap: COINMARKETCAP_API_KEY,
+  // },
   solidity: {
     version: "0.8.17",
     settings: {
@@ -37,12 +36,19 @@ module.exports = {
     mumbai: {
       url: "https://polygon-mumbai.g.alchemy.com/v2/"+process.env.GOERLI_API_KEY,
       chainId: 80001,
-      accounts: { mnemonic },
+      accounts: { mnemonic }
     },
     polygon: {
       url: "https://polygon-mainnet.g.alchemy.com/v2/"+process.env.MAINNET_API_KEY,
       chainId: 137,
       accounts: { mnemonic }
+    },
+    remote: {
+      url: "http://hardhat.4dsystem.jp",
+      chainId: 31337,
+      accounts: [
+        PRIVATEKEY
+      ]
     }
   },
   etherscan: {

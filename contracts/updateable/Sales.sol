@@ -119,17 +119,18 @@ contract Sales is UUPSUpgradeable, ERC721Wrapper {
         public
         virtual
         view
-        returns(address, address, uint256)
+        returns(address, address, uint256, uint256)
     {
         address _seller = ownerOf(_tokenId);
         if (_currency == currency_token && itemOnSale[currency_token][_seller][_tokenId].value > _amount) {
             return (
-                _seller,
-                itemOnSale[currency_token][_seller][_tokenId].sender,
-                itemOnSale[currency_token][_seller][_tokenId].feeRate
+                _seller, // 販売者
+                itemOnSale[currency_token][_seller][_tokenId].sender, // 代行者
+                itemOnSale[currency_token][_seller][_tokenId].feeRate, // 手数料率
+                itemOnSale[currency_token][_seller][_tokenId].value // 金額
             );
         } else {
-            return (address(0), address(0), 0);
+            return (address(0), address(0), 0, 0);
         }
     }
 

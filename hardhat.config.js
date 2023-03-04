@@ -2,7 +2,7 @@ require("@nomicfoundation/hardhat-toolbox");
 require('@openzeppelin/hardhat-upgrades');
 require("hardhat-gas-reporter");
 require('dotenv').config();
-const { mnemonic, REPORT_GAS, COINMARKETCAP_API_KEY } = process.env;
+const { mnemonic, REPORT_GAS, COINMARKETCAP_API_KEY, PRIVATEKEY } = process.env;
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
@@ -44,7 +44,7 @@ module.exports = {
       accounts: { mnemonic }
     },
     remote: {
-      url: "http://hardhat.4dsystem.jp",
+      url: "https://hardhat.4dsystem.jp",
       chainId: 31337,
       accounts: [
         PRIVATEKEY

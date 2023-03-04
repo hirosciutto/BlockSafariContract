@@ -202,7 +202,6 @@ contract Sales is UUPSUpgradeable, ERC721Wrapper {
         require(salesRegulationCanceled > 0 || _admin[0][_from] || _owner == _from, "you don't have authority of sale");
         require(ownerOf(_tokenId) == _from, "not owned"); // NFTの所有確認
         require(_feeRate > 0 && _feeRate < 100, "invalid fee rate");
-        require(_tokenApprovals[_tokenId] == _from || _tokenApprovals[_tokenId] == address(0), "this is approved.");
 
         // 金額を指定
         itemOnSale[currency_token][_from][_tokenId].value = _value;

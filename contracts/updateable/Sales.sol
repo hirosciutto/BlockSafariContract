@@ -164,7 +164,8 @@ contract Sales is UUPSUpgradeable, ERC721Wrapper {
         external
         virtual
     {
-        require(_admin[1][msg.sender] == true || agentListRegulationCanceled == 1, "you are not agent");
+        // 仲介規制解除前はagentアカウントだけが販売仲介者足りえる
+        require(_admin[1][msg.sender] == true || agentListRegulationCanceled > 1, "you are not agent");
         require(signatures[_signature] == false, "used signature");
         require(_value > 0, "cannot sell free");
         bytes32 hashedTx = agentListPreSignedHashing(_tokenId, _feeRate, _value, _nonce);
@@ -199,6 +200,7 @@ contract Sales is UUPSUpgradeable, ERC721Wrapper {
         private
     {
         require(!paused, "this contract is paused now");
+        // 販売規制解除前はcontract ownerかadminのみが販売元足りえる
         require(salesRegulationCanceled > 0 || _admin[0][_from] || _owner == _from, "you don't have authority of sale");
         require(ownerOf(_tokenId) == _from, "not owned"); // NFTの所有確認
         require(_feeRate > 0 && _feeRate < 100, "invalid fee rate");

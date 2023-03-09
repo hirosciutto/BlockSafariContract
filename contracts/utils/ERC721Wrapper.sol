@@ -70,7 +70,7 @@ contract ERC721Wrapper is ERC721Upgradeable,Admin {
     function safeMint(
         address to,
         uint256 tokenId
-    ) public virtual onlyAdmin {
+    ) public virtual onlyAdmin(0) {
         _safeMint(to, tokenId);
     }
 

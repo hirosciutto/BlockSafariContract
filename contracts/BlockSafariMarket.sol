@@ -2,12 +2,12 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import "./utils/Ownable.sol";
+import "./MarketStorage.sol";
 
 /**
  * Proxy Contract
  */
-contract BlockSafari is ERC1967Proxy, Ownable {
+contract BlockSafariMarket is ERC1967Proxy, MarketStorage {
 
     /*
     * init function
@@ -18,8 +18,8 @@ contract BlockSafari is ERC1967Proxy, Ownable {
     )
     ERC1967Proxy(_logic,_data)
     {
-        _owner = msg.sender;
-        _admin[0][msg.sender] = true;
+        __Ownable_init();
+        admin[0][msg.sender] = true;
     }
 
     /**

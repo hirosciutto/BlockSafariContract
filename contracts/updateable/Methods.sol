@@ -7,7 +7,7 @@ import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "../MethodsStorage.sol";
 
 /**
@@ -31,8 +31,11 @@ contract Methods is UUPSUpgradeable, ReentrancyGuardUpgradeable, MethodsStorage 
          *
          * 購入の代行は「(販売額*合計手数料率/100)*purchaseFeeRate/100」となる
          */
+        admin[0][msg.sender] = true;
         minimumTxFee = 1; // 1XAFARI
         purchaseFeeRate = 80; // 80%
+        __Ownable_init();
+        __ReentrancyGuard_init();
     }
 
     /**

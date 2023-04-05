@@ -3,10 +3,11 @@ pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
-import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "../NftStorage.sol";
 
-abstract contract ERC721Wrapper is UUPSUpgradeable, ERC721Upgradeable, OwnableUpgradeable, NftStorage {
+contract ERC721Wrapper is Initializable, UUPSUpgradeable, ERC721Upgradeable, OwnableUpgradeable, NftStorage {
 
     constructor() {}
 
@@ -17,7 +18,10 @@ abstract contract ERC721Wrapper is UUPSUpgradeable, ERC721Upgradeable, OwnableUp
     ) public initializer {
         // name,symbol,データのURL設定
         __ERC721_init(_name, _symbol);
+        __Ownable_init();
+        // __UUPSUpgradeable_init();
         uri = _uri;
+        admin[0][msg.sender] = true;
     }
 
     function _baseURI() internal view virtual override returns (string memory) {
@@ -120,5 +124,7 @@ abstract contract ERC721Wrapper is UUPSUpgradeable, ERC721Upgradeable, OwnableUp
         tokenIdBox[code]++;
         return tokenId;
     }
+
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
 }

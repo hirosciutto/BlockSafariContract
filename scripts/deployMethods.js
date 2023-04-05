@@ -8,33 +8,28 @@ const hre = require("hardhat");
 
 async function main() {
   // Logicコントラクトをデプロイ
-  const Nft = await hre.ethers.getContractFactory("ERC721Wrapper");
-  const nft = await Nft.deploy();
-  await nft.deployed();
-  console.log("NFT deployed to:", nft.address);
+  const Methods = await hre.ethers.getContractFactory("Methods");
+  const methods = await Methods.deploy();
+  await methods.deployed();
+  console.log("Methods deployed to:", methods.address);
 
   // Proxyコントラクトデプロイ
-  const ERC1967Proxy = await hre.ethers.getContractFactory("BlockSafariNFT");
-  const data = Nft.interface.encodeFunctionData('initialize',[
-    'ANIMALS',
-    'ANIMALS',
-    'https://api.blocksafari.org/storage/animals'
-  ]);
-  const erc1967Proxy = await ERC1967Proxy.deploy(
-    nft.address,
-    data);
+  const ERC1967Proxy = await hre.ethers.getContractFactory("BlockSafari");
+  const data = Methods.interface.encodeFunctionData('initialize',[]);
+  const erc1967Proxy = await ERC1967Proxy.deploy(methods.address, data);
   await erc1967Proxy.deployed();
 
   console.log("ERC1967Proxy deployed to:", erc1967Proxy.address);
 
+  // 第一引数にコントラクト名
   const myContractProxy = await ethers.getContractAt(
-    'ERC721Wrapper',
+    'Methods',
     erc1967Proxy.address,
   );
-  const name = await myContractProxy.name();
-  console.log('name is', name.toString());
-  const implementation = await myContractProxy.implementation();
-  console.log('implementation is', implementation.toString());
+  // const name = await myContractProxy.name();
+  // const implementation = await myContractProxy.implementation();
+  // console.log('name is', name.toString());
+  // console.log('implementation is', implementation.toString());
 }
 
 // We recommend this pattern to be able to use async/await everywhere

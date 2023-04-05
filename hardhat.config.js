@@ -56,7 +56,7 @@ module.exports = {
     // },
     remote: {
       url: "https://hardhat.4dsystem.jp",
-      chainId: 41416,
+      chainId: 44617,
       accounts: [
         PRIVATEKEY
       ]

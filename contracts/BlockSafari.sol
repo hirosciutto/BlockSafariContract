@@ -18,12 +18,12 @@ contract BlockSafari is ERC1967Proxy, MethodsStorage {
     )
     ERC1967Proxy(_logic,_data)
     {
-        __Ownable_init();
-        admin[0][msg.sender] = true;
     }
 
     /**
      * 呼び出しアドレスの取得
      */
-    function implementation() public returns(address) {}
+    function implementation() public view returns(address) {
+        return _implementation();
+    }
 }

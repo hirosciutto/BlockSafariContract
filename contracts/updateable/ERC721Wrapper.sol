@@ -71,14 +71,54 @@ abstract contract ERC721Wrapper is UUPSUpgradeable, ERC721Upgradeable, OwnableUp
     */
     function externalMint(
         address _minter,
-        uint256 _tokenId
+        uint248 _dnaCode
     )
         external
         virtual
         onlyTrusted
     {
-        require(address(0) == ERC721Upgradeable.ownerOf(_tokenId), "invalid owner");
-        _safeMint(_minter, _tokenId);
+        // 70桁以下の数値であること
+        require(_dnaCode <= 9999999999999999999999999999999999999999999999999999999999999999999999, "DNA digits limit");
+
+        uint256 tokenId = createTokenId(uint256(_dnaCode) * 10000000);
+
+        _safeMint(_minter, tokenId);
+    }
+
+    /**
+    * 外部からの交配要請
+    * 後輩の整合性はサーバーサイドの計算を絶対的に信頼する
+    */
+    function externalCrossbreed(
+        address _minter,
+        uint256 _parentTokenId1,
+        uint256 _parentTokenId2,
+        uint248 _dnaCode
+    )
+        external
+        virtual
+        onlyTrusted
+    {
+        // 70桁以下の数値であること
+        require(_dnaCode <= 9999999999999999999999999999999999999999999999999999999999999999999999, "DNA digits limit");
+        uint256 tokenId = createTokenId(uint256(_dnaCode) * 10000000);
+        // mint
+        _safeMint(_minter, tokenId);
+
+        // 父母の登録
+        family[tokenId][0] = _parentTokenId1;
+        family[tokenId][1] = _parentTokenId2;
+    }
+
+    function getParents(uint256 tokenId) public view returns(uint256, uint256){
+        return (family[tokenId][0], family[tokenId][1]);
+    }
+
+    function createTokenId(uint256 code) private returns(uint256) {
+        require(tokenIdBox[code] < 9999999, "same DNAs limit"); // 7桁を超えていないこと
+        uint256 tokenId = code + uint256(tokenIdBox[code]);
+        tokenIdBox[code]++;
+        return tokenId;
     }
 
 }

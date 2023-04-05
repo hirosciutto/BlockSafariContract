@@ -19,7 +19,7 @@ async function main() {
   const data = Sales.interface.encodeFunctionData('initialize',[
     'ANIMALS',
     'ANIMALS',
-    'https://blocksafari.online/img/data/ANIMALS'
+    'https://api.blocksafari.org/img/animals'
   ]);
   const erc1967Proxy = await ERC1967Proxy.deploy(
     sales.address,

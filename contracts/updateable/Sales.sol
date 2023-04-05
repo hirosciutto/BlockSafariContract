@@ -97,7 +97,7 @@ contract Sales is UUPSUpgradeable, ReentrancyGuardUpgradeable, MarketStorage {
         bytes calldata _signature,
         address _nftAddress,
         uint256 _tokenId,
-        uint256 _feeRate,
+        uint8 _feeRate,
         uint256 _value,
         uint256 _nonce
     )
@@ -140,7 +140,7 @@ contract Sales is UUPSUpgradeable, ReentrancyGuardUpgradeable, MarketStorage {
         address _nftAddress,
         address _from,
         uint256 _tokenId,
-        uint256 _feeRate,
+        uint8 _feeRate,
         uint256 _value
     )
         internal
@@ -176,15 +176,10 @@ contract Sales is UUPSUpgradeable, ReentrancyGuardUpgradeable, MarketStorage {
         require(proxyRegulationCanceled > 0 || admin[0][msg.sender] == true || owner() == msg.sender, "you don't have authority of sale");
         require(signatures[_signature] == false, "used signature");
         require(_value > 0, "cannot sell free");
-        bytes32 hashedTx = agentPurchasePreSignedHashing(_nftAddress, _tokenId, _value, _nonce);
-        address customer = ECDSAUpgradeable.recover(hashedTx, _signature);
+        address customer = ECDSAUpgradeable.recover(agentPurchasePreSignedHashing(_nftAddress, _tokenId, _value, _nonce), _signature);
         require(customer != address(0), "invalid signature");
-        (address seller, address listingAgent, uint feeRate, uint _minAmount) = checkSale(_nftAddress, _tokenId, 0);
+        address seller = IERC721Upgradeable(_nftAddress).ownerOf(_tokenId);
         require(seller != address(0), "invalid purchase");
-        require(_value >= _minAmount, "invalid value");
-
-        // 手数料計算
-        (uint256 profit, uint256 purchaseFee, uint256 listingFee) = _calcFee(_value, feeRate);
 
         // 関数の実行前に、残っているGASの量を取得する
         uint256 gasStart = gasleft();
@@ -192,23 +187,15 @@ contract Sales is UUPSUpgradeable, ReentrancyGuardUpgradeable, MarketStorage {
         // targetContractに外部関数呼び出しをする
         // 代金支払い
         // IERC20Wrapper(currency_token).externalTransferFrom(customer, seller, profit);
-        (bool success1, ) = currency_token.call{value: msg.value}
-                                (abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", customer, seller, profit));
-        require(success1, "External function execution failed 1");
+        _payment(_nftAddress, _tokenId, seller, customer, _value);
         // 商品譲渡
         // IERC721Wrapper(_nftAddress).transferFrom(seller, msg.sender, _tokenId);
-        (bool success2, ) = _nftAddress.call{value: msg.value}
-                                (abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", seller, msg.sender, _tokenId));
-        require(success2, "External function execution failed 2");
+        _deliveryItem(_nftAddress, _tokenId, seller);
         // fee支払い
         // IERC20Wrapper(currency_token).externalTransferFrom(customer, listingAgent , listingFee);
         // IERC20Wrapper(currency_token).externalTransferFrom(customer, msg.sender, purchaseFee);
-        (bool success3, ) = currency_token.call{value: msg.value}
-                                (abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", customer, listingAgent, listingFee));
-        require(success3, "External function execution failed 3");
-        (bool success4, ) = currency_token.call{value: msg.value}
-                                (abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", customer, msg.sender, purchaseFee));
-        require(success4, "External function execution failed 4");
+        _payListFee(_nftAddress, _tokenId, seller, customer, _value);
+        _payPurchaseFee(_nftAddress, _tokenId, seller, customer, _value);
 
         // 関数が使用したGASの量を計算する
         uint256 gasUsed = gasStart.sub(gasleft());
@@ -232,6 +219,37 @@ contract Sales is UUPSUpgradeable, ReentrancyGuardUpgradeable, MarketStorage {
     {
         /* "0x7dc15f66": agentPurchasePreSignedHashing(address,uint256,uint256,uint256) */
         return keccak256(abi.encodePacked(bytes4(0x7dc15f66), _nftAddress, _tokenId, _value, _nonce));
+    }
+
+    function _payment(address _nftAddress, uint256 _tokenId, address _seller, address _customer, uint256 _value) public payable {
+        uint8 feeRate = itemOnSale[_nftAddress][_seller][_tokenId].feeRate;
+        uint256 profit = _value.sub(_value.mul(feeRate).div(100));
+        (bool success, ) = currency_token.call{value: msg.value}
+                                (abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", _customer, _seller, profit));
+        require(success, "External function execution failed 1");
+    }
+
+    function _payListFee(address _nftAddress, uint256 _tokenId, address _seller,  address _customer, uint256 _value) public payable {
+        uint8 feeRate = itemOnSale[_nftAddress][_seller][_tokenId].feeRate;
+        address listingAgent = itemOnSale[_nftAddress][_seller][_tokenId].sender;
+        uint256 salesProxyFee = (_value.mul(feeRate).div(100)).sub((_value.mul(feeRate).div(100)).mul(purchaseFeeRate).div(100)); // 販売手数料 = 合計手数料 - 購入手数料
+        (bool success, ) = currency_token.call{value: msg.value}
+                                (abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", _customer, listingAgent, salesProxyFee));
+        require(success, "External function execution failed 3");
+    }
+
+    function _payPurchaseFee(address _nftAddress, uint256 _tokenId, address _seller,  address _customer, uint256 _value) public payable {
+        uint8 feeRate = itemOnSale[_nftAddress][_seller][_tokenId].feeRate;
+        uint256 purchaseProxyFee = (_value.mul(feeRate).div(100)).mul(purchaseFeeRate).div(100); // 購入手数料 = 合計手数料の80%
+        (bool success, ) = currency_token.call{value: msg.value}
+                                (abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", _customer, msg.sender, purchaseProxyFee));
+        require(success, "External function execution failed 4");
+    }
+
+    function _deliveryItem(address _nftAddress, uint256 _tokenId, address _seller) public payable {
+        (bool success, ) = _nftAddress.call{value: msg.value}
+                                (abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", _seller, msg.sender, _tokenId));
+        require(success, "External function execution failed 2");
     }
 
     /**
@@ -261,11 +279,11 @@ contract Sales is UUPSUpgradeable, ReentrancyGuardUpgradeable, MarketStorage {
         }
     }
 
-    function _calcFee(
+    function calcFee(
         uint256 _value,
         uint256 _feeRate
     )
-        private
+        public
         view
         returns(uint256, uint256, uint256)
     {
@@ -276,7 +294,6 @@ contract Sales is UUPSUpgradeable, ReentrancyGuardUpgradeable, MarketStorage {
         uint256 salesProxyFee = totalFee.sub(purchaseProxyFee); // 販売手数料 = 合計手数料 - 購入手数料
         return (profit, purchaseProxyFee, salesProxyFee);
     }
-
 
     /**
      * feeを払ってアイテムをMINTする
@@ -294,6 +311,7 @@ contract Sales is UUPSUpgradeable, ReentrancyGuardUpgradeable, MarketStorage {
         payable
         returns(bool)
     {
+        require(enable_tokens[_contract] == true, "disabled token");
         require(signatures[_signature] == false, "used signature");
         bytes32 hashedTx = proxyMintPreSignedHashing(_contract, _tokenId, _fee, _nonce);
         address _from = ECDSAUpgradeable.recover(hashedTx, _signature);
@@ -312,8 +330,8 @@ contract Sales is UUPSUpgradeable, ReentrancyGuardUpgradeable, MarketStorage {
 
         // 実行
         // require(IBlockSafari(_contract).externalMint(from, _tokenId));
-        (bool success2, ) = currency_token.call{value: msg.value}
-                                (abi.encodeWithSignature("externalMint(address,address,uint256)", _from, _tokenId));
+        (bool success2, ) = _contract.call{value: msg.value}
+                                (abi.encodeWithSignature("externalMint(address,uint256)", _from, _tokenId));
         require(success2, "External function execution failed 2");
 
         // 関数が使用したGASの量を計算する
@@ -339,6 +357,75 @@ contract Sales is UUPSUpgradeable, ReentrancyGuardUpgradeable, MarketStorage {
     {
         /* "0x92fac361": proxyMintPreSignedHashing(address,uint256,uint256,uint256) */
         return keccak256(abi.encodePacked(bytes4(0x92fac361), _contract, _tokenId, _fee, _nonce));
+    }
+
+    /**
+     * feeを払ってアイテムをMINTする
+     */
+    function proxyCrossbreed(
+        bytes calldata _signature, // 署名
+        address _contract,
+        uint256 _parentTokenId1,
+        uint256 _parentTokenId2,
+        uint256 _tokenId,
+        uint256 _fee,
+        uint256 _nonce
+    )
+        nonReentrant
+        onlyAdmin(1)
+        external
+        payable
+        returns(bool)
+    {
+        require(enable_tokens[_contract] == true, "disabled token");
+        require(signatures[_signature] == false, "used signature");
+        bytes32 hashedTx = proxyCrossbreedPreSignedHashing(_contract, _parentTokenId1, _parentTokenId2, _tokenId, _fee, _nonce);
+        address _from = ECDSAUpgradeable.recover(hashedTx, _signature);
+        require(_from != address(0), "invalid signature");
+        require(IERC20Upgradeable(currency_token).balanceOf(_from) >= _fee, "lack of funds");
+
+        // 関数の実行前に、残っているGASの量を取得する
+        uint256 gasStart = gasleft();
+
+        // targetContractに外部関数呼び出しをする
+        // fee支払い
+        // _transfer(from, msg.sender, _fee); // fee支払い
+        bool success;
+        (success, ) = currency_token.call{value: msg.value}
+                                (abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", _from, msg.sender, _fee));
+        require(success, "External function execution failed");
+
+        // 実行
+        // require(IBlockSafari(_contract).externalMint(from, _tokenId));
+        (success, ) = _contract.call{value: msg.value}
+                                (abi.encodeWithSignature("externalCrossbreed(address,uint256,uint256,uint256)", _from, _parentTokenId1, _parentTokenId2, _tokenId));
+        require(success, "External function execution failed 2");
+
+        // 関数が使用したGASの量を計算する
+        uint256 gasUsed = gasStart.sub(gasleft());
+
+        // 未使用のETHを返還する
+        uint256 refundAmount = msg.value.sub(gasUsed.mul(tx.gasprice));
+        if (refundAmount > 0) {
+            payable(msg.sender).transfer(refundAmount);
+        }
+        return true;
+    }
+
+    function proxyCrossbreedPreSignedHashing(
+        address _contract,
+        uint256 _parentTokenId1,
+        uint256 _parentTokenId2,
+        uint256 _tokenId,
+        uint256 _fee,
+        uint256 _nonce
+    )
+        private
+        pure
+        returns (bytes32)
+    {
+        /* "0x11d14e01": proxyMintPreSignedHashing(address,uint256,uint256,uint256,uint256,uint256) */
+        return keccak256(abi.encodePacked(bytes4(0x11d14e01), _contract, _parentTokenId1, _parentTokenId2, _tokenId, _fee, _nonce));
     }
 
     function _authorizeUpgrade(address) internal override onlyOwner {}

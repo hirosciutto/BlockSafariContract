@@ -8,7 +8,7 @@ contract MarketStorage is Initializable, Admin {
 
     struct Sales {
         uint256 value;
-        uint256 feeRate;
+        uint8 feeRate;
         address sender;
     }
     // トークン所有履歴

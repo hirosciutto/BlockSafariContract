@@ -22,7 +22,18 @@ module.exports = {
     }
   },
   networks: {
-    hardhat: {},
+    hardhat: {
+      saveDeployments: true,
+      loggingEnabled: true,
+      chainId: 44617,
+      initialBaseFeePerGas: 0,
+      mining: {
+        auto: true,
+        interval: 5000,
+      },
+      saveSnapshot: true,
+      snapshotInterval: 1000 * 60 * 60 * 24
+    },
     // goerli: {
     //   url: "https://eth-goerli.g.alchemy.com/v2/"+process.env.GOERLI_API_KEY,
     //   chainId: 5,
@@ -45,7 +56,7 @@ module.exports = {
     // },
     remote: {
       url: "https://hardhat.4dsystem.jp",
-      chainId: 31337,
+      chainId: 41416,
       accounts: [
         PRIVATEKEY
       ]

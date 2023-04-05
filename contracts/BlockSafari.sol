@@ -2,12 +2,12 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import "./MarketStorage.sol";
+import "./MethodsStorage.sol";
 
 /**
  * Proxy Contract
  */
-contract BlockSafariMarket is ERC1967Proxy, MarketStorage {
+contract BlockSafari is ERC1967Proxy, MethodsStorage {
 
     /*
     * init function

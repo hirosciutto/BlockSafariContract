@@ -8,12 +8,12 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
-import "../MarketStorage.sol";
+import "../MethodsStorage.sol";
 
 /**
- * Sales Contract
+ * Methods Contract
  */
-contract Sales is UUPSUpgradeable, ReentrancyGuardUpgradeable, MarketStorage {
+contract Methods is UUPSUpgradeable, ReentrancyGuardUpgradeable, MethodsStorage {
     using SafeMathUpgradeable for uint256;
     using ECDSAUpgradeable for bytes32;
 

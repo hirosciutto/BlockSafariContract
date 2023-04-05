@@ -4,7 +4,7 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "./utils/Admin.sol";
 
-contract MarketStorage is Initializable, Admin {
+contract MethodsStorage is Initializable, Admin {
 
     struct Sales {
         uint256 value;

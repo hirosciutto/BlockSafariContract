@@ -8,18 +8,17 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "../MethodsStorage.sol";
+import "../storage/MarketStorage.sol";
 
 /**
- * Methods Contract
+ * Market Contract
  */
-contract Methods is UUPSUpgradeable, ReentrancyGuardUpgradeable, MethodsStorage {
+abstract contract Market is UUPSUpgradeable, ReentrancyGuardUpgradeable, MethodsStorage {
     using SafeMathUpgradeable for uint256;
     using ECDSAUpgradeable for bytes32;
 
-    event List(address indexed _from, uint256 _tokenId, uint256 _amount);
     event AgentList(address indexed _from, uint256 _tokenId, uint256 _amount, address _agent);
-    event ExternalBuy(address indexed _from, address indexed _to, uint256 _tokenId, uint256 _amount);
+    event AgentPurchase(address indexed _from, address indexed _to, uint256 _tokenId, uint256 _amount);
     event ExternalMint(address indexed _minter, uint256 _tokenId);
 
     constructor() {}
@@ -131,7 +130,7 @@ contract Methods is UUPSUpgradeable, ReentrancyGuardUpgradeable, MethodsStorage 
         uint256 _value,
         uint256 _nonce
     )
-        private
+        internal
         pure
         returns (bytes32)
     {
@@ -216,7 +215,7 @@ contract Methods is UUPSUpgradeable, ReentrancyGuardUpgradeable, MethodsStorage 
         uint256 _value,
         uint256 _nonce
     )
-        private
+        internal
         pure
         returns (bytes32)
     {
@@ -296,139 +295,6 @@ contract Methods is UUPSUpgradeable, ReentrancyGuardUpgradeable, MethodsStorage 
 
         uint256 salesProxyFee = totalFee.sub(purchaseProxyFee); // 販売手数料 = 合計手数料 - 購入手数料
         return (profit, purchaseProxyFee, salesProxyFee);
-    }
-
-    /**
-     * feeを払ってアイテムをMINTする
-     */
-    function proxyMint(
-        bytes calldata _signature, // 署名
-        address _contract,
-        uint256 _tokenId,
-        uint256 _fee,
-        uint256 _nonce
-    )
-        nonReentrant
-        onlyAdmin(1)
-        external
-        payable
-        returns(bool)
-    {
-        require(enable_tokens[_contract] == true, "disabled token");
-        require(signatures[_signature] == false, "used signature");
-        bytes32 hashedTx = proxyMintPreSignedHashing(_contract, _tokenId, _fee, _nonce);
-        address _from = ECDSAUpgradeable.recover(hashedTx, _signature);
-        require(_from != address(0), "invalid signature");
-        require(IERC20Upgradeable(currency_token).balanceOf(_from) >= _fee, "lack of funds");
-
-        // 関数の実行前に、残っているGASの量を取得する
-        uint256 gasStart = gasleft();
-
-        // targetContractに外部関数呼び出しをする
-        // fee支払い
-        // _transfer(from, msg.sender, _fee); // fee支払い
-        (bool success, ) = currency_token.call{value: msg.value}
-                                (abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", _from, msg.sender, _fee));
-        require(success, "External function execution failed");
-
-        // 実行
-        // require(IBlockSafari(_contract).externalMint(from, _tokenId));
-        (bool success2, ) = _contract.call{value: msg.value}
-                                (abi.encodeWithSignature("externalMint(address,uint256)", _from, _tokenId));
-        require(success2, "External function execution failed 2");
-
-        // 関数が使用したGASの量を計算する
-        uint256 gasUsed = gasStart.sub(gasleft());
-
-        // 未使用のETHを返還する
-        uint256 refundAmount = msg.value.sub(gasUsed.mul(tx.gasprice));
-        if (refundAmount > 0) {
-            payable(msg.sender).transfer(refundAmount);
-        }
-        return true;
-    }
-
-    function proxyMintPreSignedHashing(
-        address _contract,
-        uint256 _tokenId,
-        uint256 _fee,
-        uint256 _nonce
-    )
-        private
-        pure
-        returns (bytes32)
-    {
-        /* "0x92fac361": proxyMintPreSignedHashing(address,uint256,uint256,uint256) */
-        return keccak256(abi.encodePacked(bytes4(0x92fac361), _contract, _tokenId, _fee, _nonce));
-    }
-
-    /**
-     * feeを払ってアイテムをMINTする
-     */
-    function proxyCrossbreed(
-        bytes calldata _signature, // 署名
-        address _contract,
-        uint256 _parentTokenId1,
-        uint256 _parentTokenId2,
-        uint256 _tokenId,
-        uint256 _fee,
-        uint256 _nonce
-    )
-        nonReentrant
-        onlyAdmin(1)
-        external
-        payable
-        returns(bool)
-    {
-        require(enable_tokens[_contract] == true, "disabled token");
-        require(signatures[_signature] == false, "used signature");
-        bytes32 hashedTx = proxyCrossbreedPreSignedHashing(_contract, _parentTokenId1, _parentTokenId2, _tokenId, _fee, _nonce);
-        address _from = ECDSAUpgradeable.recover(hashedTx, _signature);
-        require(_from != address(0), "invalid signature");
-        require(IERC20Upgradeable(currency_token).balanceOf(_from) >= _fee, "lack of funds");
-
-        // 関数の実行前に、残っているGASの量を取得する
-        uint256 gasStart = gasleft();
-
-        // targetContractに外部関数呼び出しをする
-        // fee支払い
-        // _transfer(from, msg.sender, _fee); // fee支払い
-        bool success;
-        (success, ) = currency_token.call{value: msg.value}
-                                (abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", _from, msg.sender, _fee));
-        require(success, "External function execution failed");
-
-        // 実行
-        // require(IBlockSafari(_contract).externalMint(from, _tokenId));
-        (success, ) = _contract.call{value: msg.value}
-                                (abi.encodeWithSignature("externalCrossbreed(address,uint256,uint256,uint256)", _from, _parentTokenId1, _parentTokenId2, _tokenId));
-        require(success, "External function execution failed 2");
-
-        // 関数が使用したGASの量を計算する
-        uint256 gasUsed = gasStart.sub(gasleft());
-
-        // 未使用のETHを返還する
-        uint256 refundAmount = msg.value.sub(gasUsed.mul(tx.gasprice));
-        if (refundAmount > 0) {
-            payable(msg.sender).transfer(refundAmount);
-        }
-        return true;
-    }
-
-    function proxyCrossbreedPreSignedHashing(
-        address _contract,
-        uint256 _parentTokenId1,
-        uint256 _parentTokenId2,
-        uint256 _tokenId,
-        uint256 _fee,
-        uint256 _nonce
-    )
-        private
-        pure
-        returns (bytes32)
-    {
-        /* "0x11d14e01": proxyMintPreSignedHashing(address,uint256,uint256,uint256,uint256,uint256) */
-        return keccak256(abi.encodePacked(bytes4(0x11d14e01), _contract, _parentTokenId1, _parentTokenId2, _tokenId, _fee, _nonce));
     }
 
     function _authorizeUpgrade(address) internal override onlyOwner {}

@@ -26,10 +26,8 @@ async function main() {
     'Methods',
     erc1967Proxy.address,
   );
-  // const name = await myContractProxy.name();
-  // const implementation = await myContractProxy.implementation();
-  // console.log('name is', name.toString());
-  // console.log('implementation is', implementation.toString());
+  const owner = await myContractProxy.owner();
+  console.log('owner is', owner.toString());
 }
 
 // We recommend this pattern to be able to use async/await everywhere

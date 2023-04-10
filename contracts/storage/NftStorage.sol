@@ -2,7 +2,7 @@
 pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "./utils/Admin.sol";
+import "../utils/Admin.sol";
 
 contract NftStorage is Initializable,Admin {
 
@@ -11,6 +11,4 @@ contract NftStorage is Initializable,Admin {
     string internal uri;
 
     mapping(uint256 => uint32) internal tokenIdBox;
-
-    mapping(uint256 => uint256[]) internal family;
 }

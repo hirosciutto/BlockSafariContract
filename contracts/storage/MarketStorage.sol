@@ -2,7 +2,7 @@
 pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "./utils/Admin.sol";
+import "../utils/Admin.sol";
 
 contract MethodsStorage is Initializable, Admin {
 
@@ -23,7 +23,7 @@ contract MethodsStorage is Initializable, Admin {
     // 購入に使用可能なERC20トークンのアドレス
     address internal currency_token;
 
-    // 最低手数料率(%) <ここで制御された手数料の内{purchaseFeeRate}%が購入代行者に支払われる>
+    // 最低手数料 <ここで制御された手数料の内{purchaseFeeRate}%が購入代行者に支払われる>
     uint8 minimumTxFee;
     // 手数料の中で購入代行者に支払われる比率(%)
     uint8 purchaseFeeRate;

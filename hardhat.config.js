@@ -1,6 +1,7 @@
 require("@nomicfoundation/hardhat-toolbox");
 require('@openzeppelin/hardhat-upgrades');
 require("hardhat-gas-reporter");
+require("@nomiclabs/hardhat-ethers");
 require('dotenv').config();
 const { mnemonic, REPORT_GAS, COINMARKETCAP_API_KEY, PRIVATEKEY } = process.env;
 
@@ -23,16 +24,13 @@ module.exports = {
   },
   networks: {
     hardhat: {
-      saveDeployments: true,
       loggingEnabled: true,
       chainId: 44617,
       initialBaseFeePerGas: 0,
       mining: {
         auto: true,
         interval: 5000,
-      },
-      saveSnapshot: true,
-      snapshotInterval: 1000 * 60 * 60 * 24
+      }
     },
     // goerli: {
     //   url: "https://eth-goerli.g.alchemy.com/v2/"+process.env.GOERLI_API_KEY,
@@ -64,5 +62,8 @@ module.exports = {
   },
   etherscan: {
     apiKey: process.env.ETHESCAN_API_KEY
+  },
+  ethers: {
+    saveDeployments: true
   }
 };

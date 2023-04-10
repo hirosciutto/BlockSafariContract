@@ -4,10 +4,9 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "../NftStorage.sol";
+import "../storage/NftStorage.sol";
 
-contract ERC721Wrapper is Initializable, UUPSUpgradeable, ERC721Upgradeable, OwnableUpgradeable, NftStorage {
+contract ERC721Wrapper is ERC721Upgradeable, OwnableUpgradeable, UUPSUpgradeable, NftStorage {
 
     constructor() {}
 
@@ -57,15 +56,22 @@ contract ERC721Wrapper is Initializable, UUPSUpgradeable, ERC721Upgradeable, Own
     /**
      * ホワイトリスト制御
      */
-    function trust(address _tokenAddress, bool _status) onlyOwner public {
+    function trust(address _tokenAddress, bool _status) onlyOwner public virtual {
         require(!trusted[_tokenAddress], "invalid operation");
         trusted[_tokenAddress] = _status;
     }
 
     /**
+     * ホワイトリスト確認
+     */
+    function isTrusted(address _tokenAddress) public view virtual returns(bool) {
+        return trusted[_tokenAddress];
+    }
+
+    /**
      * 外部からの信頼できるtransferFrom
      */
-    function externalTransferFrom(address _from, address _to, uint256 _tokenId) onlyTrusted public {
+    function externalTransferFrom(address _from, address _to, uint256 _tokenId) onlyTrusted public virtual {
         require(_from == ERC721Upgradeable.ownerOf(_tokenId), "invalid owner");
         _transfer(_from, _to, _tokenId);
     }
@@ -89,36 +95,28 @@ contract ERC721Wrapper is Initializable, UUPSUpgradeable, ERC721Upgradeable, Own
         _safeMint(_minter, tokenId);
     }
 
-    /**
-    * 外部からの交配要請
-    * 後輩の整合性はサーバーサイドの計算を絶対的に信頼する
-    */
-    function externalCrossbreed(
-        address _minter,
-        uint256 _parentTokenId1,
-        uint256 _parentTokenId2,
-        uint248 _dnaCode
-    )
-        external
-        virtual
-        onlyTrusted
-    {
-        // 70桁以下の数値であること
-        require(_dnaCode <= 9999999999999999999999999999999999999999999999999999999999999999999999, "DNA digits limit");
-        uint256 tokenId = createTokenId(uint256(_dnaCode) * 10000000);
-        // mint
-        _safeMint(_minter, tokenId);
+    // /**
+    // * 外部からの交配要請
+    // * 後輩の整合性はサーバーサイドの計算を絶対的に信頼する
+    // */
+    // function externalCrossbreed(
+    //     address _minter,
+    //     uint256 _parentTokenId,
+    //     uint256 _partnerTokenId,
+    //     uint248 _dnaCode
+    // )
+    //     external
+    //     virtual
+    //     onlyTrusted
+    // {
+    //     // 70桁以下の数値であること
+    //     require(_dnaCode <= 9999999999999999999999999999999999999999999999999999999999999999999999, "DNA digits limit");
+    //     uint256 tokenId = createTokenId(uint256(_dnaCode) * 10000000);
+    //     // mint
+    //     _safeMint(_minter, tokenId);
+    // }
 
-        // 父母の登録
-        family[tokenId][0] = _parentTokenId1;
-        family[tokenId][1] = _parentTokenId2;
-    }
-
-    function getParents(uint256 tokenId) public view returns(uint256, uint256){
-        return (family[tokenId][0], family[tokenId][1]);
-    }
-
-    function createTokenId(uint256 code) private returns(uint256) {
+    function createTokenId(uint256 code) internal virtual returns(uint256) {
         require(tokenIdBox[code] < 9999999, "same DNAs limit"); // 7桁を超えていないこと
         uint256 tokenId = code + uint256(tokenIdBox[code]);
         tokenIdBox[code]++;

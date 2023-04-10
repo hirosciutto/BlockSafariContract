@@ -2,12 +2,12 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import "./MethodsStorage.sol";
+import "./storage/MintStorage.sol";
 
 /**
  * Proxy Contract
  */
-contract BlockSafari is ERC1967Proxy, MethodsStorage {
+contract BlockSafariMint is ERC1967Proxy, MintStorage {
 
     /*
     * init function
@@ -18,6 +18,7 @@ contract BlockSafari is ERC1967Proxy, MethodsStorage {
     )
     ERC1967Proxy(_logic,_data)
     {
+        _transferOwnership(msg.sender);
     }
 
     /**

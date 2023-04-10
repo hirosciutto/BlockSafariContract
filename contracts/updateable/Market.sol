@@ -47,7 +47,7 @@ abstract contract Market is UUPSUpgradeable, ReentrancyGuardUpgradeable, Methods
     /**
      * 機能の停止
      */
-    function pause() public virtual onlyOwner {
+    function pause() public virtual onlyAdmin(0) {
         require(!paused);
         paused = true;
     }
@@ -55,7 +55,7 @@ abstract contract Market is UUPSUpgradeable, ReentrancyGuardUpgradeable, Methods
     /**
      * 機能の解除
      */
-    function restart() public virtual onlyOwner {
+    function restart() public virtual onlyAdmin(0) {
         require(paused);
         paused = false;
     }
@@ -90,6 +90,11 @@ abstract contract Market is UUPSUpgradeable, ReentrancyGuardUpgradeable, Methods
         proxyRegulationCanceled = status;
     }
 
+    modifier onlyAgent() {
+        require(proxyRegulationCanceled > 0 || admin[1][msg.sender] == true || owner() == msg.sender, "you don't have authority of proxy");
+        _;
+    }
+
 
     /**
      * 出品
@@ -104,10 +109,29 @@ abstract contract Market is UUPSUpgradeable, ReentrancyGuardUpgradeable, Methods
         uint256 _nonce
     )
         nonReentrant
-        onlyAdmin(1)
         external
         virtual
         payable
+    {
+        address seller = checkAgentList(_signature, _nftAddress, _tokenId, _feeRate, _value, _nonce);
+
+        _saveListing(_nftAddress, seller, _tokenId, _feeRate, _value);
+
+        signatures[_signature] = true;
+    }
+
+    function checkAgentList(
+        bytes calldata _signature,
+        address _nftAddress,
+        uint256 _tokenId,
+        uint8 _feeRate,
+        uint256 _value,
+        uint256 _nonce
+    )
+        public
+        view
+        onlyAdmin(1)
+        returns(address)
     {
         require(enable_tokens[_nftAddress] == true, "invalid nft token");
         require(signatures[_signature] == false, "used signature");
@@ -116,11 +140,7 @@ abstract contract Market is UUPSUpgradeable, ReentrancyGuardUpgradeable, Methods
         bytes32 hashedTx = agentListPreSignedHashing(_nftAddress, _tokenId, _feeRate, _value, _nonce);
         address seller = ECDSAUpgradeable.recover(hashedTx, _signature);
         require(seller != address(0), "invalid signature");
-        require(proxyRegulationCanceled > 0 || admin[0][msg.sender] == true || owner() == msg.sender, "you don't have authority of sale");
-
-        _saveListing(_nftAddress, seller, _tokenId, _feeRate, _value);
-
-        signatures[_signature] = true;
+        return seller;
     }
 
     function agentListPreSignedHashing(
@@ -169,33 +189,21 @@ abstract contract Market is UUPSUpgradeable, ReentrancyGuardUpgradeable, Methods
         uint256 _nonce
     )
         nonReentrant
-        onlyAdmin(1)
         external
         virtual
         payable
     {
-        require(enable_tokens[_nftAddress] == true, "disabled token");
-        require(proxyRegulationCanceled > 0 || admin[0][msg.sender] == true || owner() == msg.sender, "you don't have authority of sale");
-        require(signatures[_signature] == false, "used signature");
-        require(_value > 0, "cannot sell free");
-        address customer = ECDSAUpgradeable.recover(agentPurchasePreSignedHashing(_nftAddress, _tokenId, _value, _nonce), _signature);
-        require(customer != address(0), "invalid signature");
-        address seller = IERC721Upgradeable(_nftAddress).ownerOf(_tokenId);
-        require(seller != address(0), "invalid purchase");
+        (address seller, address customer) = checkAgentPurchase(_signature, _nftAddress, _tokenId, _value, _nonce);
 
         // 関数の実行前に、残っているGASの量を取得する
         uint256 gasStart = gasleft();
 
         // targetContractに外部関数呼び出しをする
         // 代金支払い
-        // IERC20Wrapper(currency_token).externalTransferFrom(customer, seller, profit);
         _payment(_nftAddress, _tokenId, seller, customer, _value);
         // 商品譲渡
-        // IERC721Wrapper(_nftAddress).transferFrom(seller, msg.sender, _tokenId);
         _deliveryItem(_nftAddress, _tokenId, seller);
         // fee支払い
-        // IERC20Wrapper(currency_token).externalTransferFrom(customer, listingAgent , listingFee);
-        // IERC20Wrapper(currency_token).externalTransferFrom(customer, msg.sender, purchaseFee);
         _payListFee(_nftAddress, _tokenId, seller, customer, _value);
         _payPurchaseFee(_nftAddress, _tokenId, seller, customer, _value);
 
@@ -207,6 +215,28 @@ abstract contract Market is UUPSUpgradeable, ReentrancyGuardUpgradeable, Methods
         if (refundAmount > 0) {
             payable(msg.sender).transfer(refundAmount);
         }
+    }
+
+    function checkAgentPurchase(
+        bytes memory _signature,
+        address _nftAddress,
+        uint256 _tokenId,
+        uint256 _value,
+        uint256 _nonce
+    )
+        onlyAgent
+        public
+        virtual
+        returns(address, address)
+    {
+        require(enable_tokens[_nftAddress] == true, "disabled token");
+        require(signatures[_signature] == false, "used signature");
+        require(_value > 0, "cannot sell free");
+        address customer = ECDSAUpgradeable.recover(agentPurchasePreSignedHashing(_nftAddress, _tokenId, _value, _nonce), _signature);
+        require(customer != address(0), "invalid signature");
+        address seller = IERC721Upgradeable(_nftAddress).ownerOf(_tokenId);
+        require(seller != address(0), "invalid purchase");
+        return (seller, customer);
     }
 
     function agentPurchasePreSignedHashing(

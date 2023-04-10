@@ -47,7 +47,7 @@ abstract contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStora
     /**
      * 機能の停止
      */
-    function pause() public virtual onlyOwner {
+    function pause() public virtual onlyAdmin(0) {
         require(!paused);
         paused = true;
     }
@@ -55,7 +55,7 @@ abstract contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStora
     /**
      * 機能の解除
      */
-    function restart() public virtual onlyOwner {
+    function restart() public virtual onlyAdmin(0) {
         require(paused);
         paused = false;
     }
@@ -83,6 +83,11 @@ abstract contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStora
         proxyRegulationCanceled = status;
     }
 
+    modifier onlyAgent() {
+        require(proxyRegulationCanceled > 0 || admin[1][msg.sender] == true || owner() == msg.sender, "you don't have authority of proxy");
+        _;
+    }
+
     /**
      * feeを払ってアイテムをMINTする
      */
@@ -94,7 +99,6 @@ abstract contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStora
         uint256 _nonce
     )
         nonReentrant
-        onlyAdmin(1)
         external
         payable
         returns(bool)
@@ -137,7 +141,7 @@ abstract contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStora
         uint256 _fee,
         uint256 _nonce
     )
-        onlyAdmin(1)
+        onlyAgent
         public
         view
         returns(address)
@@ -176,8 +180,6 @@ abstract contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStora
         CrossbreedSeed memory _parent2
     )
         nonReentrant
-        onlyAdmin(1)
-        isCrossbreedable(_parent1, _parent2)
         external
         payable
         returns(bool)
@@ -229,7 +231,7 @@ abstract contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStora
         CrossbreedSeed memory _parent1,
         CrossbreedSeed memory _parent2
     )
-        onlyAdmin(1)
+        onlyAgent
         isCrossbreedable(_parent1, _parent2)
         public
         view

@@ -8,7 +8,7 @@ abstract contract Admin is OwnableUpgradeable {
     /**
      * 管理権限
      * 0 => admin: ゲームの管理アカウント
-     * 1 => agent: APIからトークンのmint可能
+     * 1 => agent: APIからトークンのmintなどtx発行の代行が可能
      */
     mapping(uint256 => mapping(address => bool)) internal admin;
 

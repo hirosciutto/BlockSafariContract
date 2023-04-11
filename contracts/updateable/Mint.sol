@@ -70,8 +70,10 @@ abstract contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStora
 
     /**
      * 使用可能なNFTのアドレスを設定する
+     * 1: Mint可能
+     * 2: Crossbreed可能
      */
-    function setEnableItem(address erc721address, bool status) public virtual onlyOwner {
+    function setEnableItem(address erc721address, uint8 status) public virtual onlyOwner {
         require(erc721address != address(0));
         enable_tokens[erc721address] = status;
     }
@@ -103,7 +105,7 @@ abstract contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStora
         payable
         returns(bool)
     {
-        address _from = checkProxyMint(_signature, _contract, _tokenId, _fee, _nonce);
+        (, address _from) = checkProxyMint(_signature, _contract, _tokenId, _fee, _nonce);
 
         // 関数の実行前に、残っているGASの量を取得する
         uint256 gasStart = gasleft();
@@ -144,9 +146,9 @@ abstract contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStora
         onlyAgent
         public
         view
-        returns(address)
+        returns(bool, address)
     {
-        require(enable_tokens[_contract] == true, "disabled token");
+        require(isMintableContract(_contract) , "disabled token");
         require(signatures[_signature] == false, "used signature");
         bytes32 hashedTx = proxyMintPreSignedHashing(_contract, _tokenId, _fee, _nonce);
         address _from = ECDSAUpgradeable.recover(hashedTx, _signature);
@@ -154,7 +156,15 @@ abstract contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStora
         require(IERC20Upgradeable(currency_token).balanceOf(_from) >= _fee, "lack of funds");
         require(_fee >= minimumTxFee, "minimum Tx Fee");
 
-        return _from;
+        return (true, _from);
+    }
+
+    function isMintableContract(address _contract) public view returns(bool) {
+        if (enable_tokens[_contract] > 0) {
+            return true;
+        } else {
+            return false;
+        }
     }
 
     function proxyMintPreSignedHashing(
@@ -184,7 +194,7 @@ abstract contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStora
         payable
         returns(bool)
     {
-        (address _parentOwner1, address _parentOwner2) = checkProxyCrossbreed(_contract, _parent1, _parent2);
+        (, address _parentOwner1, address _parentOwner2) = checkProxyCrossbreed(_contract, _parent1, _parent2);
 
         // 関数の実行前に、残っているGASの量を取得する
         uint256 gasStart = gasleft();
@@ -209,8 +219,8 @@ abstract contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStora
                                 (abi.encodeWithSignature("externalMint(address,uint256)", _parentOwner2, _parent2.newBorn));
         require(success, "External function execution failed 2");
 
-        _afterProcess(_parent1.newBorn, _parent1.parentTokenId, _parent1.partnerTokenId);
-        _afterProcess(_parent2.newBorn, _parent2.parentTokenId, _parent1.partnerTokenId);
+        _afterProcess(_contract, _parent1.newBorn, _parent1.parentTokenId, _parent1.partnerTokenId);
+        _afterProcess(_contract, _parent2.newBorn, _parent2.parentTokenId, _parent1.partnerTokenId);
 
         signatures[_parent1.signature] = true;
         signatures[_parent2.signature] = true;
@@ -232,40 +242,48 @@ abstract contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStora
         CrossbreedSeed memory _parent2
     )
         onlyAgent
-        isCrossbreedable(_parent1, _parent2)
+        isCrossbreedable(_contract, _parent1, _parent2)
         public
         view
-        returns(address, address)
+        returns(bool, address, address)
     {
-        require(enable_tokens[_contract] == true, "disabled token");
+        require(isCrossbreedableContract(_contract), "disabled token");
         require(_parent1.parentTokenId != _parent2.parentTokenId);
         require(_parent1.parentTokenId == _parent2.partnerTokenId && _parent2.parentTokenId == _parent1.partnerTokenId, "invalid transaction");
         require(_parent1.fee.add(_parent2.fee) >= minimumTxFee, "minimum Tx Fee");
 
         address _parentOwner1 = _authCrossbreed(_contract, _parent1);
         address _parentOwner2 = _authCrossbreed(_contract, _parent2);
-        return (_parentOwner1, _parentOwner2);
+        return (true, _parentOwner1, _parentOwner2);
     }
 
-    modifier isCrossbreedable(CrossbreedSeed memory _seed1, CrossbreedSeed memory _seed2) {
-        require(isCrossbreedLocked(_seed1.parentTokenId));
-        require(isCrossbreedLocked(_seed2.parentTokenId));
-        require(!isFamily(_seed1.parentTokenId, _seed2.parentTokenId));
+    modifier isCrossbreedable(address _contract, CrossbreedSeed memory _seed1, CrossbreedSeed memory _seed2) {
+        require(isCrossbreedLocked(_contract, _seed1.parentTokenId));
+        require(isCrossbreedLocked(_contract, _seed2.parentTokenId));
+        require(!isFamily(_contract, _seed1.parentTokenId, _seed2.parentTokenId));
         _;
     }
 
-    function isFamily(uint256 _tokenId, uint256 _targetId) public view virtual returns(bool) {
+    function isCrossbreedableContract(address _contract) public view returns(bool) {
+        if (enable_tokens[_contract] == 2) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    function isFamily(address _contract, uint256 _tokenId, uint256 _targetId) public view virtual returns(bool) {
         uint256[4] memory parents = [
-            family[_tokenId][0],
-            family[_tokenId][1],
-            family[_targetId][0],
-            family[_targetId][1]
+            family[_contract][_tokenId][0],
+            family[_contract][_tokenId][1],
+            family[_contract][_targetId][0],
+            family[_contract][_targetId][1]
         ];
         for (uint8 i = 0; i < parents.length; i++) {
             if (parents[i] == _targetId) {
                 return true;
             }
-            (uint256[] memory parents2) = getParents(parents[i]);
+            (uint256[] memory parents2) = getParents(_contract, parents[i]);
             for (uint8 j = 0; j < parents2.length; i++) {
                 if (parents2[j] == _targetId) {
                     return true;
@@ -275,8 +293,8 @@ abstract contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStora
         return false;
     }
 
-    function isCrossbreedLocked(uint256 _tokenId) public view virtual returns(bool) {
-        if (block.timestamp > crossbreedLock[_tokenId]) {
+    function isCrossbreedLocked(address _contract, uint256 _tokenId) public view virtual returns(bool) {
+        if (block.timestamp > crossbreedLock[_contract][_tokenId]) {
             return true;
         } else {
             return false;
@@ -301,21 +319,21 @@ abstract contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStora
         pure
         returns (bytes32)
     {
-        /* "0x11d14e01": proxyMintPreSignedHashing(address,uint256,uint256,uint256,uint256) */
-        return keccak256(abi.encodePacked(bytes4(0x11d14e01), _contract, _seed.parentTokenId, _seed.partnerTokenId, _seed.fee, _seed.nonce));
+        /* "0x361c4ee6": proxyMintPreSignedHashing(address,uint256,uint256,uint256,uint256) */
+        return keccak256(abi.encodePacked(bytes4(0x361c4ee6), _contract, _seed.parentTokenId, _seed.partnerTokenId, _seed.fee, _seed.nonce));
     }
 
-    function _afterProcess(uint256 tokenId, uint256 _parentTokenId, uint256 _partnerTokenId) internal
+    function _afterProcess(address _contract, uint256 tokenId, uint256 _parentTokenId, uint256 _partnerTokenId) internal
     {
         // 父母の登録
-        family[tokenId][0] = _parentTokenId;
-        family[tokenId][1] = _partnerTokenId;
+        family[_contract][tokenId][0] = _parentTokenId;
+        family[_contract][tokenId][1] = _partnerTokenId;
 
-        crossbreedLock[_parentTokenId] = block.timestamp + (crossbreedLockDays * 24 * 60 * 60);
+        crossbreedLock[_contract][_parentTokenId] = block.timestamp + (crossbreedLockDays * 24 * 60 * 60);
     }
 
-    function getParents(uint256 tokenId) public view virtual returns(uint256[] memory){
-        return family[tokenId];
+    function getParents(address _contract, uint256 tokenId) public view virtual returns(uint256[] memory){
+        return family[_contract][tokenId];
     }
 
     function _authorizeUpgrade(address) internal override onlyOwner {}

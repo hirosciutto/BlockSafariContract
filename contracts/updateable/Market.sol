@@ -71,7 +71,7 @@ abstract contract Market is UUPSUpgradeable, ReentrancyGuardUpgradeable, Methods
     /**
      * 使用可能なNFTのアドレスを設定する
      */
-    function setEnableItem(address erc721address, bool status) public virtual onlyOwner {
+    function setEnableItem(address erc721address, uint8 status) public virtual onlyOwner {
         require(erc721address != address(0));
         enable_tokens[erc721address] = status;
     }
@@ -113,7 +113,7 @@ abstract contract Market is UUPSUpgradeable, ReentrancyGuardUpgradeable, Methods
         virtual
         payable
     {
-        address seller = checkAgentList(_signature, _nftAddress, _tokenId, _feeRate, _value, _nonce);
+        (,address seller) = checkAgentList(_signature, _nftAddress, _tokenId, _feeRate, _value, _nonce);
 
         _saveListing(_nftAddress, seller, _tokenId, _feeRate, _value);
 
@@ -131,16 +131,24 @@ abstract contract Market is UUPSUpgradeable, ReentrancyGuardUpgradeable, Methods
         public
         view
         onlyAdmin(1)
-        returns(address)
+        returns(bool, address)
     {
-        require(enable_tokens[_nftAddress] == true, "invalid nft token");
+        require(isSaleableItemContract(_nftAddress), "invalid nft token");
         require(signatures[_signature] == false, "used signature");
         require(_value > 0, "cannot sell free");
         require(_value.mul(_feeRate).div(100) >= minimumTxFee, "lack of fee");
         bytes32 hashedTx = agentListPreSignedHashing(_nftAddress, _tokenId, _feeRate, _value, _nonce);
         address seller = ECDSAUpgradeable.recover(hashedTx, _signature);
         require(seller != address(0), "invalid signature");
-        return seller;
+        return (true, seller);
+    }
+
+    function isSaleableItemContract(address _contract) public view returns(bool) {
+        if (enable_tokens[_contract] > 0) {
+            return true;
+        } else {
+            return false;
+        }
     }
 
     function agentListPreSignedHashing(
@@ -193,7 +201,7 @@ abstract contract Market is UUPSUpgradeable, ReentrancyGuardUpgradeable, Methods
         virtual
         payable
     {
-        (address seller, address customer) = checkAgentPurchase(_signature, _nftAddress, _tokenId, _value, _nonce);
+        (, address seller, address customer) = checkAgentPurchase(_signature, _nftAddress, _tokenId, _value, _nonce);
 
         // 関数の実行前に、残っているGASの量を取得する
         uint256 gasStart = gasleft();
@@ -227,16 +235,16 @@ abstract contract Market is UUPSUpgradeable, ReentrancyGuardUpgradeable, Methods
         onlyAgent
         public
         virtual
-        returns(address, address)
+        returns(bool, address, address)
     {
-        require(enable_tokens[_nftAddress] == true, "disabled token");
+        require(isSaleableItemContract(_nftAddress), "disabled token");
         require(signatures[_signature] == false, "used signature");
         require(_value > 0, "cannot sell free");
         address customer = ECDSAUpgradeable.recover(agentPurchasePreSignedHashing(_nftAddress, _tokenId, _value, _nonce), _signature);
         require(customer != address(0), "invalid signature");
         address seller = IERC721Upgradeable(_nftAddress).ownerOf(_tokenId);
         require(seller != address(0), "invalid purchase");
-        return (seller, customer);
+        return (true, seller, customer);
     }
 
     function agentPurchasePreSignedHashing(
@@ -297,7 +305,7 @@ abstract contract Market is UUPSUpgradeable, ReentrancyGuardUpgradeable, Methods
         view
         returns(address, address, uint256, uint256)
     {
-        require(enable_tokens[_nftAddress] == true, "disabled token");
+        require(isSaleableItemContract(_nftAddress), "disabled token");
         address _seller = IERC721Upgradeable(_nftAddress).ownerOf(_tokenId);
         if (itemOnSale[_nftAddress][_seller][_tokenId].value >= _amount) {
             return (

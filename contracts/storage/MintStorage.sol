@@ -6,14 +6,21 @@ import "../utils/Admin.sol";
 
 contract MintStorage is Initializable, Admin {
 
+    // 親 contract => childTokenId => parentTokenId[]
+    mapping(address => mapping(uint256 => uint256[])) internal family;
+
+    // 交配可能期間制御 contract => tokenId => timestamp
+    mapping(address => mapping(uint256 => uint256)) crossbreedLock;
+    uint256 crossbreedLockDays;
+
     // 署名一覧
     mapping(bytes => bool) internal signatures;
 
     // 最低手数料 <ここで制御された手数料の内{purchaseFeeRate}%が購入代行者に支払われる>
     uint8 minimumTxFee;
 
-    // 購入可能なERC721トークンのアドレス
-    mapping(address => bool) internal enable_tokens;
+    // mint可能なERC721トークンのアドレス
+    mapping(address => uint8) internal enable_tokens;
     // 購入に使用可能なERC20トークンのアドレス
     address internal currency_token;
 
@@ -32,10 +39,4 @@ contract MintStorage is Initializable, Admin {
         uint256 nonce;
         uint256 newBorn;
     }
-
-    mapping(uint256 => uint256[]) internal family;
-
-    // 交配可能期間制御 tokenId => timestamp
-    mapping(uint256 => uint256) crossbreedLock;
-    uint256 crossbreedLockDays;
 }

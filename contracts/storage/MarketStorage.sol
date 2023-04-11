@@ -19,7 +19,7 @@ contract MethodsStorage is Initializable, Admin {
     mapping(address => mapping(address => mapping(uint256 => Sales))) internal itemOnSale;
 
     // 購入可能なERC721トークンのアドレス
-    mapping(address => bool) internal enable_tokens;
+    mapping(address => uint8) internal enable_tokens;
     // 購入に使用可能なERC20トークンのアドレス
     address internal currency_token;
 

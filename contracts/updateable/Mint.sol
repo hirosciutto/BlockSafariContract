@@ -13,13 +13,17 @@ import "../storage/MintStorage.sol";
 /**
  * Market Contract
  */
-abstract contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
+contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
     using SafeMathUpgradeable for uint256;
     using ECDSAUpgradeable for bytes32;
 
-    event AgentList(address indexed _from, uint256 _tokenId, uint256 _amount, address _agent);
-    event AgentPurchase(address indexed _from, address indexed _to, uint256 _tokenId, uint256 _amount);
-    event ExternalMint(address indexed _minter, uint256 _tokenId);
+    event Pause();
+    event Restart();
+    event SetEnableItem(address indexed _contract, uint8 _status);
+    event SetEnableCurrency(address indexed _contract);
+    event ChangeProxyRegulationCanceled(uint8 status);
+    event ProxyMint(address indexed _contract, address indexed _from, uint256 tokenId, uint256 _fee, uint256 _nonce);
+    event ProxyCrossbreed(address indexed _contract, address indexed _parentOwner1, address indexed _parentOwner2, CrossbreedSeed seed1, CrossbreedSeed seed2);
 
     constructor() {}
 
@@ -50,6 +54,7 @@ abstract contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStora
     function pause() public virtual onlyAdmin(0) {
         require(!paused);
         paused = true;
+        emit Pause();
     }
 
     /**
@@ -58,14 +63,20 @@ abstract contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStora
     function restart() public virtual onlyAdmin(0) {
         require(paused);
         paused = false;
+        emit Restart();
     }
 
     /**
      * 使用可能な通貨トークンのアドレスを設定する
      */
-    function setEnableCurrency(address erc20address) public virtual onlyOwner {
-        require(erc20address != address(0));
-        currency_token = erc20address;
+    function setEnableCurrency(address _erc20address) public virtual onlyOwner {
+        require(_erc20address != address(0));
+        currency_token = _erc20address;
+        emit SetEnableCurrency(_erc20address);
+    }
+
+    function getEnableCurrency() public view virtual returns(address) {
+        return currency_token;
     }
 
     /**
@@ -73,16 +84,26 @@ abstract contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStora
      * 1: Mint可能
      * 2: Crossbreed可能
      */
-    function setEnableItem(address erc721address, uint8 status) public virtual onlyOwner {
-        require(erc721address != address(0));
-        enable_tokens[erc721address] = status;
+    function setEnableItem(address _erc721address, uint8 _status) public virtual onlyOwner {
+        require(_erc721address != address(0));
+        enable_tokens[_erc721address] = _status;
+        emit SetEnableItem(_erc721address, _status);
+    }
+
+    function getEnableItem(address _erc721address) public view virtual returns(uint8) {
+        return enable_tokens[_erc721address];
     }
 
     /**
      * 仲介制限解除設定
      */
-    function changeProxyRegulation(uint8 status) public virtual onlyOwner {
-        proxyRegulationCanceled = status;
+    function changeProxyRegulation(uint8 _status) public virtual onlyOwner {
+        proxyRegulationCanceled = _status;
+        emit ChangeProxyRegulationCanceled(_status);
+    }
+
+    function getProxyRegulationCanceled() public view virtual returns(uint8) {
+        return proxyRegulationCanceled;
     }
 
     modifier onlyAgent() {
@@ -133,6 +154,7 @@ abstract contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStora
         if (refundAmount > 0) {
             payable(msg.sender).transfer(refundAmount);
         }
+        emit ProxyMint(_contract, _from, _tokenId, _fee, _nonce);
         return true;
     }
 
@@ -233,6 +255,7 @@ abstract contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStora
         if (refundAmount > 0) {
             payable(msg.sender).transfer(refundAmount);
         }
+        emit ProxyCrossbreed(_contract, _parentOwner1, _parentOwner2, _parent1, _parent2);
         return true;
     }
 
@@ -334,6 +357,10 @@ abstract contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStora
 
     function getParents(address _contract, uint256 tokenId) public view virtual returns(uint256[] memory){
         return family[_contract][tokenId];
+    }
+
+    function getCrossbreedUnlockDate(address _contract, uint256 _tokenId) public view virtual returns(uint256) {
+        return crossbreedLock[_contract][_tokenId];
     }
 
     function _authorizeUpgrade(address) internal override onlyOwner {}

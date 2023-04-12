@@ -16,8 +16,8 @@ contract MintStorage is Initializable, Admin {
     // 署名一覧
     mapping(bytes => bool) internal signatures;
 
-    // 最低手数料 <ここで制御された手数料の内{purchaseFeeRate}%が購入代行者に支払われる>
-    uint8 minimumTxFee;
+    // 最低手数料
+    uint8 internal minimumTxFee;
 
     // mint可能なERC721トークンのアドレス
     mapping(address => uint8) internal enable_tokens;
@@ -25,7 +25,7 @@ contract MintStorage is Initializable, Admin {
     address internal currency_token;
 
     // 自由仲介規制解除 0:規制 1:解除
-    uint8 proxyRegulationCanceled;
+    uint8 internal proxyRegulationCanceled;
 
     // 一時停止
     bool internal paused;

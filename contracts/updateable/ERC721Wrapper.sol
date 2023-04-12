@@ -80,47 +80,20 @@ contract ERC721Wrapper is ERC721Upgradeable, OwnableUpgradeable, UUPSUpgradeable
     * 外部からのmint要請
     */
     function externalMint(
-        address _minter,
-        uint248 _dnaCode
+        address _to,
+        uint256 _tokenId
     )
         external
         virtual
         onlyTrusted
     {
-        // 70桁以下の数値であること
-        require(_dnaCode <= 9999999999999999999999999999999999999999999999999999999999999999999999, "DNA digits limit");
+        require(!_exists(_tokenId), "this tokenId exists.");
 
-        uint256 tokenId = createTokenId(uint256(_dnaCode) * 10000000);
-
-        _safeMint(_minter, tokenId);
+        _safeMint(_to, _tokenId);
     }
 
-    // /**
-    // * 外部からの交配要請
-    // * 後輩の整合性はサーバーサイドの計算を絶対的に信頼する
-    // */
-    // function externalCrossbreed(
-    //     address _minter,
-    //     uint256 _parentTokenId,
-    //     uint256 _partnerTokenId,
-    //     uint248 _dnaCode
-    // )
-    //     external
-    //     virtual
-    //     onlyTrusted
-    // {
-    //     // 70桁以下の数値であること
-    //     require(_dnaCode <= 9999999999999999999999999999999999999999999999999999999999999999999999, "DNA digits limit");
-    //     uint256 tokenId = createTokenId(uint256(_dnaCode) * 10000000);
-    //     // mint
-    //     _safeMint(_minter, tokenId);
-    // }
-
-    function createTokenId(uint256 code) internal virtual returns(uint256) {
-        require(tokenIdBox[code] < 9999999, "same DNAs limit"); // 7桁を超えていないこと
-        uint256 tokenId = code + uint256(tokenIdBox[code]);
-        tokenIdBox[code]++;
-        return tokenId;
+    function notExists(uint256 _tokenId) public view returns(bool) {
+        return !_exists(_tokenId);
     }
 
     function _authorizeUpgrade(address) internal override onlyOwner {}

@@ -82,7 +82,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
     /**
      * 使用可能なNFTのアドレスを設定する
      * 1: Mint可能
-     * 2: Crossbreed可能
+     * 2: Mint/Crossbreed可能
      */
     function setEnableItem(address _erc721address, uint8 _status) public virtual onlyOwner {
         require(_erc721address != address(0));
@@ -104,6 +104,10 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
 
     function getProxyRegulationCanceled() public view virtual returns(uint8) {
         return proxyRegulationCanceled;
+    }
+
+    function setMinimumTxFee(uint8 _value) public onlyOwner {
+        minimumTxFee = _value;
     }
 
     modifier onlyAgent() {
@@ -364,4 +368,12 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
     }
 
     function _authorizeUpgrade(address) internal override onlyOwner {}
+
+    function updateCrossbreedLockDays(uint8 _days) public onlyOwner {
+        crossbreedLockDays = _days;
+    }
+
+    function updateMinimumTaxFee(uint8 _fee) public onlyOwner {
+        minimumTxFee = _fee;
+    }
 }

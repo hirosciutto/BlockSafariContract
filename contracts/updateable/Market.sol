@@ -13,7 +13,7 @@ import "../storage/MarketStorage.sol";
 /**
  * Market Contract
  */
-abstract contract Market is UUPSUpgradeable, ReentrancyGuardUpgradeable, MethodsStorage {
+abstract contract Market is UUPSUpgradeable, ReentrancyGuardUpgradeable, MarketStorage {
     using SafeMathUpgradeable for uint256;
     using ECDSAUpgradeable for bytes32;
 

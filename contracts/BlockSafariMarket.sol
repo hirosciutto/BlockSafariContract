@@ -7,7 +7,7 @@ import "./storage/MarketStorage.sol";
 /**
  * Proxy Contract
  */
-contract BlockSafariMarket is ERC1967Proxy, MethodsStorage {
+contract BlockSafariMarket is ERC1967Proxy, MarketStorage {
 
     /*
     * init function

@@ -4,7 +4,7 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "../utils/Admin.sol";
 
-contract MethodsStorage is Initializable, Admin {
+contract MarketStorage is Initializable, Admin {
 
     struct Sales {
         uint256 value;
@@ -24,13 +24,13 @@ contract MethodsStorage is Initializable, Admin {
     address internal currency_token;
 
     // 最低手数料 <ここで制御された手数料の内{purchaseFeeRate}%が購入代行者に支払われる>
-    uint8 minimumTxFee;
+    uint8 internal minimumTxFee;
     // 手数料の中で購入代行者に支払われる比率(%)
-    uint8 purchaseFeeRate;
+    uint8 internal purchaseFeeRate;
     // 販売規制解除 0:規制 1:解除
-    uint8 salesRegulationCanceled;
+    uint8 internal salesRegulationCanceled;
     // 自由仲介規制解除 0:規制 1:解除
-    uint8 proxyRegulationCanceled;
+    uint8 internal proxyRegulationCanceled;
     // 一時停止
     bool internal paused;
 }

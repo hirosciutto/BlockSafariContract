@@ -126,6 +126,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         uint256 _nonce
     )
         nonReentrant
+        onlyAgent
         external
         payable
         returns(bool)
@@ -169,7 +170,6 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         uint256 _fee,
         uint256 _nonce
     )
-        onlyAgent
         public
         view
         returns(bool, address)
@@ -216,6 +216,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         CrossbreedSeed memory _parent2
     )
         nonReentrant
+        onlyAgent
         external
         payable
         returns(bool)
@@ -268,7 +269,6 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         CrossbreedSeed memory _parent1,
         CrossbreedSeed memory _parent2
     )
-        onlyAgent
         isCrossbreedable(_contract, _parent1, _parent2)
         public
         view

@@ -232,30 +232,13 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         // 関数の実行前に、残っているGASの量を取得する
         uint256 gasStart = gasleft();
 
-        // targetContractに外部関数呼び出しをする
-        // fee支払い
-        // _transfer(from, msg.sender, _fee); // fee支払い
-        bool success;
-        (success, ) = currency_token.call{value: msg.value}
-                                (abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", _parentOwner1, msg.sender, _parent1.fee));
-        require(success, "External function execution failed 1");
-        (success, ) = currency_token.call{value: msg.value}
-                                (abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", _parentOwner2, msg.sender, _parent2.fee));
-        require(success, "External function execution failed 2");
+        _payCrossbreedFees(_parentOwner1, _parentOwner2, _parent1.fee, _parent2.fee);
 
-        // 実行
-        // require(IBlockSafari(_contract).externalMint(from, _tokenId));
-        (bool success2, bytes memory res1) = _contract.call{value: msg.value}
-                                (abi.encodeWithSignature("safeMint(address)", _parentOwner1));
-        require(success2, "External function execution failed 3");
-        uint256 tokenId1 = abi.decode(res1, (uint256));
+        uint256 tokenId1 = _crossbreedMint(_contract, _parentOwner1);
         _afterProcess(_contract, tokenId1, _parent1.parentTokenId, _parent1.partnerTokenId);
 
-        (bool success3, bytes memory res2) = _contract.call{value: msg.value}
-                                (abi.encodeWithSignature("safeMint(address)", _parentOwner2));
-        uint256 tokenId2 = abi.decode(res2, (uint256));
-        require(success3, "External function execution failed 4");
-        _afterProcess(_contract, tokenId2, _parent2.parentTokenId, _parent1.partnerTokenId);
+        uint256 tokenId2 = _crossbreedMint(_contract, _parentOwner2);
+        _afterProcess(_contract, tokenId2, _parent2.parentTokenId, _parent2.partnerTokenId);
 
         signatures[_parent1.signature] = true;
         signatures[_parent2.signature] = true;
@@ -334,6 +317,28 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         } else {
             return false;
         }
+    }
+
+    function _payCrossbreedFees(address _parentOwner1, address _parentOwner2, uint256 _fee1, uint256 _fee2) internal {
+        // targetContractに外部関数呼び出しをする
+        // fee支払い
+        // _transfer(from, msg.sender, _fee); // fee支払い
+        (bool success, ) = currency_token.call{value: msg.value}
+                                (abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", _parentOwner1, msg.sender, _fee1));
+        require(success, "External function execution failed 1");
+        (success, ) = currency_token.call{value: msg.value}
+                                (abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", _parentOwner2, msg.sender, _fee2));
+        require(success, "External function execution failed 2");
+    }
+
+    function _crossbreedMint(address _contract, address _parentOwner) internal returns(uint256) {
+        // 実行
+        // require(IBlockSafari(_contract).externalMint(from, _tokenId));
+        (bool success, bytes memory res) = _contract.call{value: msg.value}
+                                (abi.encodeWithSignature("safeMint(address)", _parentOwner));
+        require(success, "External function execution failed 3");
+        uint256 tokenId = abi.decode(res, (uint256));
+        return tokenId;
     }
 
     function _authCrossbreed(address _contract, CrossbreedSeed memory _crossbreedSeed) internal view returns(address) {

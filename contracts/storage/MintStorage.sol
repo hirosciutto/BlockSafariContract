@@ -17,7 +17,7 @@ contract MintStorage is Initializable, Admin {
     mapping(bytes => bool) internal signatures;
 
     // 最低手数料
-    uint8 internal minimumTxFee;
+    uint256 internal minimumTxFee;
 
     // mint可能なERC721トークンのアドレス
     mapping(address => uint8) internal enable_tokens;
@@ -37,6 +37,6 @@ contract MintStorage is Initializable, Admin {
         uint256 partnerTokenId;
         uint256 fee;
         uint256 nonce;
-        uint256 newBorn;
+        uint256 rand;
     }
 }

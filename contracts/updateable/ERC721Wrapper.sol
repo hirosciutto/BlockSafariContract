@@ -7,6 +7,8 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "../storage/NftStorage.sol";
 
 contract ERC721Wrapper is ERC721Upgradeable, OwnableUpgradeable, UUPSUpgradeable, NftStorage {
+    // カウンターstructをuse
+    using CountersUpgradeable for CountersUpgradeable.Counter;
 
     constructor() {}
 
@@ -37,14 +39,25 @@ contract ERC721Wrapper is ERC721Upgradeable, OwnableUpgradeable, UUPSUpgradeable
         return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId, ".json")) : "";
     }
 
+    modifier mintable() {
+        require(admin[0][msg.sender] == true || owner() == msg.sender || isTrusted(msg.sender), "caller is not the owner");
+        _;
+    }
+
     /**
      * 発行
      */
     function safeMint(
-        address to,
-        uint256 tokenId
-    ) public virtual onlyAdmin(0) {
+        address to
+    ) public virtual mintable returns(uint256) {
+        // 現在のIDを取得
+        uint256 tokenId = _tokenIdCounter.current();
+        // インクリメント
+        _tokenIdCounter.increment();
+
         _safeMint(to, tokenId);
+
+        return tokenId;
     }
 
 
@@ -56,16 +69,16 @@ contract ERC721Wrapper is ERC721Upgradeable, OwnableUpgradeable, UUPSUpgradeable
     /**
      * ホワイトリスト制御
      */
-    function trust(address _tokenAddress, bool _status) onlyOwner public virtual {
-        require(!trusted[_tokenAddress], "invalid operation");
-        trusted[_tokenAddress] = _status;
+    function trust(address _contractAddress, bool _status) onlyOwner public virtual {
+        require(!trusted[_contractAddress], "invalid operation");
+        trusted[_contractAddress] = _status;
     }
 
     /**
      * ホワイトリスト確認
      */
-    function isTrusted(address _tokenAddress) public view virtual returns(bool) {
-        return trusted[_tokenAddress];
+    function isTrusted(address _contractAddress) public view virtual returns(bool) {
+        return trusted[_contractAddress];
     }
 
     /**
@@ -76,24 +89,28 @@ contract ERC721Wrapper is ERC721Upgradeable, OwnableUpgradeable, UUPSUpgradeable
         _transfer(_from, _to, _tokenId);
     }
 
-    /**
-    * 外部からのmint要請
-    */
-    function externalMint(
-        address _to,
-        uint256 _tokenId
-    )
-        external
-        virtual
-        onlyTrusted
-    {
-        require(!_exists(_tokenId), "this tokenId exists.");
-
-        _safeMint(_to, _tokenId);
+    function tokenExists(uint256 _tokenId) public view returns(bool) {
+        return _exists(_tokenId);
     }
 
-    function notExists(uint256 _tokenId) public view returns(bool) {
-        return !_exists(_tokenId);
+    function updateBaseURI(string memory _uri) public {
+        uri = _uri;
+    }
+
+    /**
+     * for opensea
+     */
+    function isApprovedForAll(
+        address _owner,
+        address _operator
+    ) public override view returns (bool isOperator) {
+      // if OpenSea's ERC721 Proxy Address is detected, auto-return true
+        if (_operator == address(0x58807baD0B376efc12F5AD86aAc70E78ed67deaE)) {
+            return true;
+        }
+
+        // otherwise, use the default ERC721.isApprovedForAll()
+        return ERC721Upgradeable.isApprovedForAll(_owner, _operator);
     }
 
     function _authorizeUpgrade(address) internal override onlyOwner {}

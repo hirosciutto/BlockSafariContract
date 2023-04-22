@@ -384,36 +384,12 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         crossbreedLockDays = _days;
     }
 
-    function updateMinimumTaxFee(uint8 _fee) public onlyOwner {
+    function updateMinimumTaxFee(uint256 _fee) public onlyOwner {
         minimumTxFee = _fee;
     }
 
     function balanceOf(address _from) public view returns(uint256) {
         return IERC20Upgradeable(currency_token).balanceOf(_from);
-    }
-
-    function donate() public payable {
-        uint256 tokens = 0;
-        uint256 weiAmount = msg.value;
-
-        if (block.timestamp <= 1653974400) {  // 2023年5月31日 00:00:00 UTC
-            tokens = weiAmount * 70;
-        } else if (block.timestamp <= 1656566400) {  // 2023年6月30日 00:00:00 UTC
-            tokens = weiAmount * 60;
-        } else if (block.timestamp <= 1659244800) {  // 2023年7月31日 00:00:00 UTC
-            tokens = weiAmount * 50;
-        }
-
-        require(tokens > 0, "No tokens to mint");
-        require(IERC20Upgradeable(currency_token).balanceOf(address(this)) >= tokens);
-
-        (bool success, ) = currency_token.call{value: msg.value}
-                                    (abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", address(this), msg.sender, tokens));
-        require(success, "External function execution failed");
-    }
-
-    function withdraw() public onlyOwner {
-        payable(msg.sender).transfer(address(this).balance);
     }
 
     function _authorizeUpgrade(address) internal override onlyOwner {}

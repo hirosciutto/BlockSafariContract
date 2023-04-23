@@ -35,7 +35,6 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
          * 購入の代行は「(販売額*合計手数料率/100)*purchaseFeeRate/100」となる
          */
         admin[0][msg.sender] = true;
-        minimumTxFee = 10 ** 18; // 1XAFARI
         crossbreedLockDays = 60; // 60日
         __Ownable_init();
         __ReentrancyGuard_init();
@@ -106,8 +105,12 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         return proxyRegulationCanceled;
     }
 
-    function setMinimumTxFee(uint8 _value) public onlyOwner {
+    function setMinimumTxFee(uint256 _value) public onlyOwner {
         minimumTxFee = _value;
+    }
+
+    function getMinimumTaxFee() public view returns(uint256) {
+        return minimumTxFee;
     }
 
     modifier onlyAgent() {
@@ -141,19 +144,11 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
 
         // targetContractに外部関数呼び出しをする
         // fee支払い
-        // _transfer(from, msg.sender, _fee); // fee支払い
         if (_fee > 0) {
-            (bool success, ) = currency_token.call{value: msg.value}
-                                    (abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", _from, msg.sender, _fee));
-            require(success, "External function execution failed");
+            _payFee(_from, _fee);
         }
-
         // 実行
-        // require(IBlockSafari(_contract).externalMint(from));
-        (bool success2, bytes memory res) = _contract.call{value: msg.value}
-                                (abi.encodeWithSignature("mint(address)", _from));
-        require(success2, "External function execution failed 2");
-        uint256 tokenId = abi.decode(res, (uint256));
+        uint256 tokenId = _externalMint(_contract, _from);
 
         signatures[_signature] = true;
 
@@ -181,14 +176,25 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         returns(bool, address)
     {
         require(isMintableContract(_contract) , "disabled token");
-        require(signatures[_signature] == false, "used signature");
-        bytes32 hashedTx = proxyMintPreSignedHashing(_contract, _fee, _nonce, _rand);
-        address _from = ECDSAUpgradeable.recover(hashedTx, _signature);
+        address _from = checkProxyMintSignature(_signature, _contract, _fee, _nonce, _rand);
         require(_from != address(0), "invalid signature");
         require(IERC20Upgradeable(currency_token).balanceOf(_from) >= _fee, "lack of funds");
         require(_fee >= minimumTxFee, "minimum Tx Fee");
 
         return (true, _from);
+    }
+
+    function checkProxyMintSignature(
+        bytes memory _signature,
+        address _contract,
+        uint256 _fee,
+        uint256 _nonce,
+        uint256 _rand
+    ) public view returns(address) {
+        require(signatures[_signature] == false, "used signature");
+        bytes32 hashedTx = proxyMintPreSignedHashing(_contract, _fee, _nonce, _rand);
+        address _from = ECDSAUpgradeable.recover(hashedTx, _signature);
+        return _from;
     }
 
     function isMintableContract(address _contract) public view returns(bool) {
@@ -205,7 +211,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         uint256 _nonce,
         uint256 _rand
     )
-        internal
+        public
         pure
         returns (bytes32)
     {
@@ -232,12 +238,13 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         // 関数の実行前に、残っているGASの量を取得する
         uint256 gasStart = gasleft();
 
-        _payCrossbreedFees(_parentOwner1, _parentOwner2, _parent1.fee, _parent2.fee);
+        _payFee(_parentOwner1, _parent1.fee);
+        _payFee(_parentOwner2, _parent2.fee);
 
-        uint256 tokenId1 = _crossbreedMint(_contract, _parentOwner1);
+        uint256 tokenId1 = _externalMint(_contract, _parentOwner1);
         _afterProcess(_contract, tokenId1, _parent1.parentTokenId, _parent1.partnerTokenId);
 
-        uint256 tokenId2 = _crossbreedMint(_contract, _parentOwner2);
+        uint256 tokenId2 = _externalMint(_contract, _parentOwner2);
         _afterProcess(_contract, tokenId2, _parent2.parentTokenId, _parent2.partnerTokenId);
 
         signatures[_parent1.signature] = true;
@@ -319,24 +326,18 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         }
     }
 
-    function _payCrossbreedFees(address _parentOwner1, address _parentOwner2, uint256 _fee1, uint256 _fee2) internal {
-        // targetContractに外部関数呼び出しをする
-        // fee支払い
-        // _transfer(from, msg.sender, _fee); // fee支払い
+    function _payFee(address _from, uint256 _fee) internal {
         (bool success, ) = currency_token.call{value: msg.value}
-                                (abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", _parentOwner1, msg.sender, _fee1));
-        require(success, "External function execution failed 1");
-        (success, ) = currency_token.call{value: msg.value}
-                                (abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", _parentOwner2, msg.sender, _fee2));
-        require(success, "External function execution failed 2");
+                                (abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", _from, msg.sender, _fee));
+        require(success, "External function execution failed pay fee");
     }
 
-    function _crossbreedMint(address _contract, address _parentOwner) internal returns(uint256) {
+    function _externalMint(address _contract, address _owner) internal returns(uint256) {
         // 実行
         // require(IBlockSafari(_contract).externalMint(from, _tokenId));
         (bool success, bytes memory res) = _contract.call{value: msg.value}
-                                (abi.encodeWithSignature("safeMint(address)", _parentOwner));
-        require(success, "External function execution failed 3");
+                                (abi.encodeWithSignature("safeMint(address)", _owner));
+        require(success, "External function execution failed external mint");
         uint256 tokenId = abi.decode(res, (uint256));
         return tokenId;
     }
@@ -382,10 +383,6 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
 
     function updateCrossbreedLockDays(uint8 _days) public onlyOwner {
         crossbreedLockDays = _days;
-    }
-
-    function updateMinimumTaxFee(uint256 _fee) public onlyOwner {
-        minimumTxFee = _fee;
     }
 
     function balanceOf(address _from) public view returns(uint256) {

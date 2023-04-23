@@ -89,11 +89,11 @@ contract ERC721Wrapper is ERC721Upgradeable, OwnableUpgradeable, UUPSUpgradeable
         _transfer(_from, _to, _tokenId);
     }
 
-    function tokenExists(uint256 _tokenId) public view returns(bool) {
+    function tokenExists(uint256 _tokenId) public virtual view returns(bool) {
         return _exists(_tokenId);
     }
 
-    function updateBaseURI(string memory _uri) public {
+    function updateBaseURI(string memory _uri) public virtual {
         uri = _uri;
     }
 
@@ -103,7 +103,7 @@ contract ERC721Wrapper is ERC721Upgradeable, OwnableUpgradeable, UUPSUpgradeable
     function isApprovedForAll(
         address _owner,
         address _operator
-    ) public override view returns (bool isOperator) {
+    ) public override virtual view returns (bool isOperator) {
       // if OpenSea's ERC721 Proxy Address is detected, auto-return true
         if (_operator == address(0x58807baD0B376efc12F5AD86aAc70E78ed67deaE)) {
             return true;
@@ -113,6 +113,6 @@ contract ERC721Wrapper is ERC721Upgradeable, OwnableUpgradeable, UUPSUpgradeable
         return ERC721Upgradeable.isApprovedForAll(_owner, _operator);
     }
 
-    function _authorizeUpgrade(address) internal override onlyOwner {}
+    function _authorizeUpgrade(address) internal override virtual onlyOwner {}
 
 }

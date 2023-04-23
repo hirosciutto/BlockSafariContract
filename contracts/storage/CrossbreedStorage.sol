@@ -32,7 +32,6 @@ contract CrossbreedStorage is Initializable, Admin {
 
     // 交配のパラメータ
     struct CrossbreedSeed {
-        bytes signature;
         uint256 parentTokenId;
         uint256 partnerTokenId;
         uint256 fee;

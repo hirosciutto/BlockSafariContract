@@ -22,8 +22,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
     event SetEnableItem(address indexed _contract, uint8 _status);
     event SetEnableCurrency(address indexed _contract);
     event ChangeProxyRegulationCanceled(uint8 status);
-    event ProxyMint(address indexed _contract, address indexed _from, uint256 tokenId, uint256 _fee, uint256 _nonce);
-    event ProxyCrossbreed(address indexed _contract, address indexed _parentOwner1, address indexed _parentOwner2, CrossbreedSeed seed1, CrossbreedSeed seed2);
+    event ProxyMint(address indexed _contract, address indexed _from, uint256 _fee, uint256 tokenId);
 
     constructor() {}
 
@@ -104,11 +103,11 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         return proxyRegulationCanceled;
     }
 
-    function setMinimumTxFee(uint256 _value) public onlyOwner {
+    function setMinimumTxFee(uint256 _value) public virtual onlyOwner {
         minimumTxFee = _value;
     }
 
-    function getMinimumTaxFee() public view returns(uint256) {
+    function getMinimumTaxFee() public virtual view returns(uint256) {
         return minimumTxFee;
     }
 
@@ -134,6 +133,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         onlyAgent
         external
         payable
+        virtual
         returns(uint256)
     {
         (, address _from) = checkProxyMint(_signature, _contract, _fee, _nonce, _rand);
@@ -159,7 +159,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         if (refundAmount > 0) {
             payable(msg.sender).transfer(refundAmount);
         }
-        emit ProxyMint(_contract, _from, tokenId, _fee, _nonce);
+        emit ProxyMint(_contract, _from, _fee, tokenId);
         return tokenId;
     }
 
@@ -171,6 +171,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         uint256 _rand
     )
         public
+        virtual
         view
         returns(bool, address)
     {
@@ -189,14 +190,14 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         uint256 _fee,
         uint256 _nonce,
         uint256 _rand
-    ) public view returns(address) {
+    ) public virtual view returns(address) {
         require(signatures[_signature] == false, "used signature");
         bytes32 hashedTx = proxyMintPreSignedHashing(_contract, _fee, _nonce, _rand);
         address _from = ECDSAUpgradeable.recover(hashedTx, _signature);
         return _from;
     }
 
-    function isMintableContract(address _contract) public view returns(bool) {
+    function isMintableContract(address _contract) public virtual view returns(bool) {
         if (enable_tokens[_contract] > 0) {
             return true;
         } else {
@@ -211,6 +212,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         uint256 _rand
     )
         public
+        virtual
         pure
         returns (bytes32)
     {
@@ -218,12 +220,12 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         return keccak256(abi.encodePacked(bytes4(0x92fac361), _contract, _fee, _nonce, _rand));
     }
 
-    function _payFee(address _from, uint256 _fee) internal {
+    function _payFee(address _from, uint256 _fee) internal virtual{
         (bool success, ) = currency_token.call(abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", _from, msg.sender, _fee));
         require(success, "External function execution failed pay fee");
     }
 
-    function _externalMint(address _contract, address _owner) internal returns(uint256) {
+    function _externalMint(address _contract, address _owner) internal virtual returns(uint256) {
         // mint実行
         (bool success, bytes memory res) = _contract.call(abi.encodeWithSignature("safeMint(address)", _owner));
         require(success, "External function execution failed external mint");

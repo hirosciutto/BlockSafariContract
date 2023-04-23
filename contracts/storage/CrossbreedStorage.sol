@@ -4,7 +4,14 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "../utils/Admin.sol";
 
-contract MintStorage is Initializable, Admin {
+contract CrossbreedStorage is Initializable, Admin {
+
+    // 親 contract => childTokenId => parentTokenId[]
+    mapping(address => mapping(uint256 => uint256[])) internal family;
+
+    // 交配可能期間制御 contract => tokenId => timestamp
+    mapping(address => mapping(uint256 => uint256)) internal crossbreedLock;
+    uint256 crossbreedLockDays;
 
     // 署名一覧
     mapping(bytes => bool) internal signatures;
@@ -22,4 +29,14 @@ contract MintStorage is Initializable, Admin {
 
     // 一時停止
     bool internal paused;
+
+    // 交配のパラメータ
+    struct CrossbreedSeed {
+        bytes signature;
+        uint256 parentTokenId;
+        uint256 partnerTokenId;
+        uint256 fee;
+        uint256 nonce;
+        uint256 rand;
+    }
 }

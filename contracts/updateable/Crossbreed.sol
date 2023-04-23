@@ -8,12 +8,12 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/IERC721Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "../storage/MintStorage.sol";
+import "../storage/CrossbreedStorage.sol";
 
 /**
- * Market Contract
+ * Crossbreed Contract
  */
-contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
+contract Crossbreed is UUPSUpgradeable, ReentrancyGuardUpgradeable, CrossbreedStorage {
     using SafeMathUpgradeable for uint256;
     using ECDSAUpgradeable for bytes32;
 
@@ -35,6 +35,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
          * 購入の代行は「(販売額*合計手数料率/100)*purchaseFeeRate/100」となる
          */
         admin[0][msg.sender] = true;
+        crossbreedLockDays = 60; // 60日
         __Ownable_init();
         __ReentrancyGuard_init();
     }
@@ -119,37 +120,34 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
 
     /**
      * feeを払ってアイテムをMINTする
-     * Mint後に運営を仲介したTxからtokenIdが返され、
-     * 運営がtokenIdをtokenCodeと紐づける
-     * tokenIdをMintすることで出現したAnimalsを確認できる１
      */
-    function proxyMint(
-        bytes memory _signature, // 署名
+    function proxyCrossbreed(
         address _contract,
-        uint256 _fee,
-        uint256 _nonce,
-        uint256 _rand
+        CrossbreedSeed memory _parent1,
+        CrossbreedSeed memory _parent2
     )
         nonReentrant
         onlyAgent
         external
         payable
-        returns(uint256)
+        returns(bool)
     {
-        (, address _from) = checkProxyMint(_signature, _contract, _fee, _nonce, _rand);
+        (, address _parentOwner1, address _parentOwner2) = checkProxyCrossbreed(_contract, _parent1, _parent2);
 
         // 関数の実行前に、残っているGASの量を取得する
         uint256 gasStart = gasleft();
 
-        // targetContractに外部関数呼び出しをする
-        // fee支払い
-        if (_fee > 0) {
-            _payFee(_from, _fee);
-        }
-        // 実行
-        uint256 tokenId = _externalMint(_contract, _from);
+        _payFee(_parentOwner1, _parent1.fee);
+        _payFee(_parentOwner2, _parent2.fee);
 
-        signatures[_signature] = true;
+        uint256 tokenId1 = _externalMint(_contract, _parentOwner1);
+        _afterProcess(_contract, tokenId1, _parent1.parentTokenId, _parent1.partnerTokenId);
+
+        uint256 tokenId2 = _externalMint(_contract, _parentOwner2);
+        _afterProcess(_contract, tokenId2, _parent2.parentTokenId, _parent2.partnerTokenId);
+
+        signatures[_parent1.signature] = true;
+        signatures[_parent2.signature] = true;
 
         // 関数が使用したGASの量を計算する
         uint256 gasUsed = gasStart.sub(gasleft());
@@ -159,63 +157,72 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         if (refundAmount > 0) {
             payable(msg.sender).transfer(refundAmount);
         }
-        emit ProxyMint(_contract, _from, tokenId, _fee, _nonce);
-        return tokenId;
+        emit ProxyCrossbreed(_contract, _parentOwner1, _parentOwner2, _parent1, _parent2);
+        return true;
     }
 
-    function checkProxyMint(
-        bytes memory _signature,
+    function checkProxyCrossbreed(
         address _contract,
-        uint256 _fee,
-        uint256 _nonce,
-        uint256 _rand
+        CrossbreedSeed memory _parent1,
+        CrossbreedSeed memory _parent2
     )
+        isCrossbreedable(_contract, _parent1, _parent2)
         public
         view
-        returns(bool, address)
+        returns(bool, address, address)
     {
-        require(isMintableContract(_contract) , "disabled token");
-        address _from = checkProxyMintSignature(_signature, _contract, _fee, _nonce, _rand);
-        require(_from != address(0), "invalid signature");
-        require(IERC20Upgradeable(currency_token).balanceOf(_from) >= _fee, "lack of funds");
-        require(_fee >= minimumTxFee, "minimum Tx Fee");
+        require(isCrossbreedableContract(_contract), "disabled token");
+        require(_parent1.parentTokenId != _parent2.parentTokenId);
+        require(_parent1.parentTokenId == _parent2.partnerTokenId && _parent2.parentTokenId == _parent1.partnerTokenId, "invalid transaction");
+        require(_parent1.fee.add(_parent2.fee) >= minimumTxFee, "minimum Tx Fee");
 
-        return (true, _from);
+        address _parentOwner1 = _authCrossbreed(_contract, _parent1);
+        address _parentOwner2 = _authCrossbreed(_contract, _parent2);
+        return (true, _parentOwner1, _parentOwner2);
     }
 
-    function checkProxyMintSignature(
-        bytes memory _signature,
-        address _contract,
-        uint256 _fee,
-        uint256 _nonce,
-        uint256 _rand
-    ) public view returns(address) {
-        require(signatures[_signature] == false, "used signature");
-        bytes32 hashedTx = proxyMintPreSignedHashing(_contract, _fee, _nonce, _rand);
-        address _from = ECDSAUpgradeable.recover(hashedTx, _signature);
-        return _from;
+    modifier isCrossbreedable(address _contract, CrossbreedSeed memory _seed1, CrossbreedSeed memory _seed2) {
+        require(isCrossbreedLocked(_contract, _seed1.parentTokenId));
+        require(isCrossbreedLocked(_contract, _seed2.parentTokenId));
+        require(!isFamily(_contract, _seed1.parentTokenId, _seed2.parentTokenId));
+        _;
     }
 
-    function isMintableContract(address _contract) public view returns(bool) {
-        if (enable_tokens[_contract] > 0) {
+    function isCrossbreedableContract(address _contract) public view returns(bool) {
+        if (enable_tokens[_contract] == 2) {
             return true;
         } else {
             return false;
         }
     }
 
-    function proxyMintPreSignedHashing(
-        address _contract,
-        uint256 _fee,
-        uint256 _nonce,
-        uint256 _rand
-    )
-        public
-        pure
-        returns (bytes32)
-    {
-        /* "0x92fac361": proxyMintPreSignedHashing(address,uint256,uint256,uint256) */
-        return keccak256(abi.encodePacked(bytes4(0x92fac361), _contract, _fee, _nonce, _rand));
+    function isFamily(address _contract, uint256 _tokenId, uint256 _targetId) public view virtual returns(bool) {
+        uint256[4] memory parents = [
+            family[_contract][_tokenId][0],
+            family[_contract][_tokenId][1],
+            family[_contract][_targetId][0],
+            family[_contract][_targetId][1]
+        ];
+        for (uint8 i = 0; i < parents.length; i++) {
+            if (parents[i] == _targetId) {
+                return true;
+            }
+            (uint256[] memory parents2) = getParents(_contract, parents[i]);
+            for (uint8 j = 0; j < parents2.length; i++) {
+                if (parents2[j] == _targetId) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    function isCrossbreedLocked(address _contract, uint256 _tokenId) public view virtual returns(bool) {
+        if (block.timestamp > crossbreedLock[_contract][_tokenId]) {
+            return true;
+        } else {
+            return false;
+        }
     }
 
     function _payFee(address _from, uint256 _fee) internal {
@@ -229,6 +236,49 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         require(success, "External function execution failed external mint");
         uint256 tokenId = abi.decode(res, (uint256));
         return tokenId;
+    }
+
+    function _authCrossbreed(address _contract, CrossbreedSeed memory _crossbreedSeed) internal view returns(address) {
+        require(signatures[_crossbreedSeed.signature] == false, "used signature");
+        bytes32 hashedTx = proxyCrossbreedPreSignedHashing(_contract, _crossbreedSeed);
+        address _from = ECDSAUpgradeable.recover(hashedTx, _crossbreedSeed.signature);
+        require(_from != address(0), "invalid signature");
+        require(IERC20Upgradeable(currency_token).balanceOf(_from) >= _crossbreedSeed.fee, "lack of funds");
+        require(IERC721Upgradeable(_contract).ownerOf(_crossbreedSeed.parentTokenId) == _from, "parent is invalid owner");
+        return _from;
+    }
+
+    function proxyCrossbreedPreSignedHashing(
+        address _contract,
+        CrossbreedSeed memory _seed
+    )
+        public
+        pure
+        returns (bytes32)
+    {
+        /* "0x361c4ee6": proxyMintPreSignedHashing(address,uint256,uint256,uint256,uint256) */
+        return keccak256(abi.encodePacked(bytes4(0x361c4ee6), _contract, _seed.parentTokenId, _seed.partnerTokenId, _seed.fee, _seed.nonce));
+    }
+
+    function _afterProcess(address _contract, uint256 _tokenId, uint256 _parentTokenId, uint256 _partnerTokenId) internal
+    {
+        // 父母の登録
+        family[_contract][_tokenId][0] = _parentTokenId;
+        family[_contract][_tokenId][1] = _partnerTokenId;
+
+        crossbreedLock[_contract][_parentTokenId] = block.timestamp + (crossbreedLockDays * 24 * 60 * 60);
+    }
+
+    function getParents(address _contract, uint256 tokenId) public view virtual returns(uint256[] memory){
+        return family[_contract][tokenId];
+    }
+
+    function getCrossbreedUnlockDate(address _contract, uint256 _tokenId) public view virtual returns(uint256) {
+        return crossbreedLock[_contract][_tokenId];
+    }
+
+    function updateCrossbreedLockDays(uint8 _days) public onlyOwner {
+        crossbreedLockDays = _days;
     }
 
     function _authorizeUpgrade(address) internal override onlyOwner {}

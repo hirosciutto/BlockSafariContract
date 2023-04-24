@@ -239,7 +239,7 @@ contract Crossbreed is UUPSUpgradeable, ReentrancyGuardUpgradeable, CrossbreedSt
     function _authCrossbreed(address _contract, bytes memory _signature, CrossbreedSeed memory _crossbreedSeed) internal virtual view returns(address) {
         require(signatures[_signature] == false, "used signature");
         bytes32 hashedTx = proxyCrossbreedPreSignedHashing(_contract, _crossbreedSeed);
-        address _from = ECDSAUpgradeable.recover(hashedTx, _signature);
+        address _from = ECDSAUpgradeable.recover(ECDSAUpgradeable.toEthSignedMessageHash(hashedTx), _signature);
         require(_from != address(0), "invalid signature");
         require(IERC20Upgradeable(currency_token).balanceOf(_from) >= _crossbreedSeed.fee, "lack of funds");
         require(IERC721Upgradeable(_contract).ownerOf(_crossbreedSeed.parentTokenId) == _from, "parent is invalid owner");

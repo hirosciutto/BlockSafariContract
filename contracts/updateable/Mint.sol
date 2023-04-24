@@ -193,7 +193,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
     ) public virtual view returns(address) {
         require(signatures[_signature] == false, "used signature");
         bytes32 hashedTx = proxyMintPreSignedHashing(_contract, _fee, _nonce, _rand);
-        address _from = ECDSAUpgradeable.recover(hashedTx, _signature);
+        address _from = ECDSAUpgradeable.recover(ECDSAUpgradeable.toEthSignedMessageHash(hashedTx), _signature);
         return _from;
     }
 

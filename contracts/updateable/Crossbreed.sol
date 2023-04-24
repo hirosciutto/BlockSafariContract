@@ -19,7 +19,7 @@ contract Crossbreed is UUPSUpgradeable, ReentrancyGuardUpgradeable, CrossbreedSt
 
     event Pause();
     event Restart();
-    event SetEnableItem(address indexed _contract, uint8 _status);
+    event SetEnableItem(address indexed _contract, bool _status);
     event SetEnableCurrency(address indexed _contract);
     event ChangeProxyRegulationCanceled(uint8 status);
     event ProxyMint(address indexed _contract, address indexed _from, uint256 _fee, uint256 tokenId);
@@ -83,13 +83,13 @@ contract Crossbreed is UUPSUpgradeable, ReentrancyGuardUpgradeable, CrossbreedSt
      * 1: Mint可能
      * 2: Mint/Crossbreed可能
      */
-    function setEnableItem(address _erc721address, uint8 _status) public virtual onlyOwner {
+    function setEnableItem(address _erc721address, bool _status) public virtual onlyOwner {
         require(_erc721address != address(0));
         enable_tokens[_erc721address] = _status;
         emit SetEnableItem(_erc721address, _status);
     }
 
-    function getEnableItem(address _erc721address) public view virtual returns(uint8) {
+    function isEnableItem(address _erc721address) public view virtual returns(bool) {
         return enable_tokens[_erc721address];
     }
 
@@ -177,7 +177,7 @@ contract Crossbreed is UUPSUpgradeable, ReentrancyGuardUpgradeable, CrossbreedSt
         view
         returns(bool, address, address)
     {
-        require(isCrossbreedableContract(_contract), "disabled token");
+        require(isEnableItem(_contract), "disabled token");
         require(_parent1.parentTokenId != _parent2.parentTokenId);
         require(_parent1.parentTokenId == _parent2.partnerTokenId && _parent2.parentTokenId == _parent1.partnerTokenId, "invalid transaction");
         require(_parent1.fee.add(_parent2.fee) >= minimumTxFee, "minimum Tx Fee");
@@ -192,14 +192,6 @@ contract Crossbreed is UUPSUpgradeable, ReentrancyGuardUpgradeable, CrossbreedSt
         require(isCrossbreedLocked(_contract, _seed2.parentTokenId));
         require(!isFamily(_contract, _seed1.parentTokenId, _seed2.parentTokenId));
         _;
-    }
-
-    function isCrossbreedableContract(address _contract) public virtual view returns(bool) {
-        if (enable_tokens[_contract] == 1) {
-            return true;
-        } else {
-            return false;
-        }
     }
 
     function isFamily(address _contract, uint256 _tokenId, uint256 _targetId) public virtual view returns(bool) {

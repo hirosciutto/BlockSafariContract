@@ -48,14 +48,17 @@ contract ERC721Wrapper is ERC721Upgradeable, OwnableUpgradeable, UUPSUpgradeable
      * 発行
      */
     function safeMint(
-        address to
+        address _to,
+        uint256 _code
     ) public virtual mintable returns(uint256) {
-        // 現在のIDを取得
-        uint256 tokenId = _tokenIdCounter.current();
         // インクリメント
         _tokenIdCounter.increment();
 
-        _safeMint(to, tokenId);
+        // 現在のIDを取得
+        uint256 tokenId = _tokenIdCounter.current();
+
+        codes[_code] = tokenId;
+        _safeMint(_to, tokenId);
 
         return tokenId;
     }
@@ -95,6 +98,15 @@ contract ERC721Wrapper is ERC721Upgradeable, OwnableUpgradeable, UUPSUpgradeable
 
     function updateBaseURI(string memory _uri) public virtual {
         uri = _uri;
+    }
+
+    function codeId(uint256 _code) public virtual view returns(uint256) {
+        return codes[_code];
+    }
+
+    function codeOwnerOf(uint256 _code) public virtual view returns(address) {
+        require(codes[_code] > 0 && ownerOf(codes[_code]) != address(0), "invalid code");
+        return ownerOf(codes[_code]);
     }
 
     /**

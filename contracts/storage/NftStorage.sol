@@ -17,4 +17,6 @@ contract NftStorage is Initializable,Admin {
     mapping(address => bool) internal trusted;
 
     string internal uri;
+
+    mapping(uint256 => uint256) codes;
 }

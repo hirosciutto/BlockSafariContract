@@ -1,9 +1,18 @@
 # Block Safari
 
 このコントラクトコードによって、
-ANIMALS,PARKS,ITEMS(provisional)の３つのコントラクトがデプロイされます。
+ANIMALS,PARKS,ITEMSの３つのNFTコントラクトがデプロイされます。
+これらのNFTのためのサービスコントラクトとして、
+・Mintコントラクト(Mint)
+・Crossbreedコントラクト(キャラクターの交配)
+・Marketコントラクト(独自トークン専用のマーケットプレイス)
+を開発。
 
-contracts/upgradeable/Sales.sol をデプロイし、
-そのコントラクトアドレスをcontracts/BlockSafari.solの第一引数に指定してデプロイします。
-それぞれのロジックコードにバグが発生した場合は、Sales.solを修正したコントラクトをデプロイして、
-BlockSafariコントラクトでupdateToメソッドを使用してロジックコントラクトを置換します。
+一次リリースとして
+ANIMALS/Mintコントラクトをリリース予定。
+
+---------------------------
+ERC1967(upgradeable contract)
+ERC865(meta transaction)
+ERC721
+ERC20

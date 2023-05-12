@@ -19,7 +19,7 @@ contract OneThousandPuniNote is ERC721Upgradeable, OwnableUpgradeable, UUPSUpgra
 
     function initialize(address _coinTokenAddress) public initializer {
         // name,symbol,データのURL設定
-        __ERC721_init("1000 PUNI NOTE", "PUNIx1K");
+        __ERC721_init("1000 PUNI NOTE", "kPUNI");
         __Ownable_init();
         admin[0][msg.sender] = true;
         unit = 1000;
@@ -90,26 +90,26 @@ contract OneThousandPuniNote is ERC721Upgradeable, OwnableUpgradeable, UUPSUpgra
      * 発行は通貨の預入によってのみ行われる
      */
     function deposit(
-        uint256 _amount
+        uint256 _noteAmountRequested
     ) public virtual payable {
         // 数値チェック
         require(_tokenIdCounter.current() <= 50000000 * (10**18), "note mint limit");
-        (, uint256 deposits) = SafeMathUpgradeable.tryMul(_amount, unit);
-        require(deposits > 0, "invalid amount");
+        (, uint256 depositValue) = SafeMathUpgradeable.tryMul(_noteAmountRequested, unit * (10**18));
+        require(depositValue > 0, "invalid amount");
         // 実行者が両替できるほどのコインを持っているか？
-        require(IERC20Upgradeable(coin_token).balanceOf(msg.sender) >= deposits, "lack of funds");
+        require(IERC20Upgradeable(coin_token).balanceOf(msg.sender) >= depositValue, "lack of funds");
 
         // 関数の実行前に、残っているGASの量を取得する
         uint256 gasStart = gasleft();
 
         // 通貨の預入
-        (bool success, ) = coin_token.call(abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", msg.sender, address(this), deposits));
+        (bool success, ) = coin_token.call(abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", msg.sender, address(this), depositValue));
         require(success, "External function execution failed deposit");
 
         // 保管紙幣の不足枚数 = 要求紙幣 - 保管紙幣
-        (, uint256 mintCnt) = SafeMathUpgradeable.trySub(_amount, balanceOf(address(this)));
+        (, uint256 mintCnt) = SafeMathUpgradeable.trySub(_noteAmountRequested, balanceOf(address(this)));
         // 保管からの払出枚数 = 要求紙幣 - 保管紙幣の不足枚数
-        (, uint256 changeCnt) = SafeMathUpgradeable.trySub(_amount, mintCnt);
+        (, uint256 changeCnt) = SafeMathUpgradeable.trySub(_noteAmountRequested, mintCnt);
         if (changeCnt > 0) {
             // 保管紙幣の払出
             uint idx = custody_minimum_idx;
@@ -139,21 +139,21 @@ contract OneThousandPuniNote is ERC721Upgradeable, OwnableUpgradeable, UUPSUpgra
      * 紙幣を返却してコインを払い出す
      */
     function withdraw(
-        uint[] memory tokenIds
+        uint256[] memory _tokenIds
     ) public virtual payable {
         // 保管を確認
-        require(ERC20Upgradeable(coin_token).balanceOf(address(this)) > tokenIds.length.mul(unit), "lack of change");
+        require(ERC20Upgradeable(coin_token).balanceOf(address(this)) >= _tokenIds.length.mul(unit * (10**18)), "lack of change");
         // 関数の実行前に、残っているGASの量を取得する
         uint256 gasStart = gasleft();
-        for (uint i = 0; i < tokenIds.length; i++) {
-            require(ownerOf(tokenIds[i]) == msg.sender, "you are not owner"); // 所有権確認
-            _transfer(msg.sender, address(this), tokenIds[i]); // 紙幣預入
-            custody.push(tokenIds[i]); // 保管リストに追加
+        for (uint i = 0; i < _tokenIds.length; i++) {
+            require(ownerOf(_tokenIds[i]) == msg.sender, "you are not owner"); // 所有権確認
+            _transfer(msg.sender, address(this), _tokenIds[i]); // 紙幣預入
+            custody.push(_tokenIds[i]); // 保管リストに追加
             _custodyCounter.increment();
         }
 
         // 払い出し
-        (bool success, ) = coin_token.call(abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", address(this), msg.sender, tokenIds.length.mul(unit)));
+        (bool success, ) = coin_token.call(abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", address(this), msg.sender, _tokenIds.length.mul(unit * (10**18))));
         require(success, "External function execution failed payout");
 
         // 関数が使用したGASの量を計算する

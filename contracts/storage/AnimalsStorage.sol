@@ -6,7 +6,7 @@ import "@openzeppelin/contracts-upgradeable/utils/CountersUpgradeable.sol";
 
 import "../utils/Admin.sol";
 
-contract NftStorage is Initializable,Admin {
+contract AnimalsStorage is Initializable,Admin {
 
     // カウンターstructをuse
     using CountersUpgradeable for CountersUpgradeable.Counter;
@@ -18,5 +18,5 @@ contract NftStorage is Initializable,Admin {
 
     string internal uri;
 
-    mapping(uint256 => uint256) codes;
+    mapping(uint256 => uint256) internal codes;
 }

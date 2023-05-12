@@ -68,12 +68,12 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
      */
     function setEnableCurrency(address _erc20address) public virtual onlyOwner {
         require(_erc20address != address(0));
-        currency_token = _erc20address;
+        coin_token = _erc20address;
         emit SetEnableCurrency(_erc20address);
     }
 
     function getEnableCurrency() public view virtual returns(address) {
-        return currency_token;
+        return coin_token;
     }
 
     /**
@@ -124,10 +124,12 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
      */
     function proxyMint(
         bytes memory _signature, // 署名
+        address _client,
         address _contract,
         uint256 _fee,
         uint256 _nonce,
-        uint256 _code
+        uint256 _code,
+        NoteUsing memory _noteData
     )
         nonReentrant
         onlyAgent
@@ -136,7 +138,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         virtual
         returns(uint256)
     {
-        (, address _from) = checkProxyMint(_signature, _contract, _fee, _nonce, _code);
+        checkProxyMint(_signature, _client, _contract, _fee, _nonce, _code, _noteData);
 
         // 関数の実行前に、残っているGASの量を取得する
         uint256 gasStart = gasleft();
@@ -144,13 +146,17 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         // targetContractに外部関数呼び出しをする
         // fee支払い
         if (_fee > 0) {
-            _payFee(_from, _fee);
+            if (_noteData.noteUnit > 0) {
+                // 紙幣決済
+                _payFeeByNote(_client, _fee, _noteData);
+            } else {
+                _payFee(_client, _fee);
+            }
         }
         // 実行
-        uint256 tokenId = _externalMint(_contract, _from, _code);
+        uint256 tokenId = _externalMint(_contract, _client, _code);
 
         signatures[_signature] = true;
-
         // 関数が使用したGASの量を計算する
         uint256 gasUsed = gasStart.sub(gasleft());
 
@@ -159,29 +165,45 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         if (refundAmount > 0) {
             payable(msg.sender).transfer(refundAmount);
         }
-        emit ProxyMint(_contract, _from, _fee, tokenId);
+        emit ProxyMint(_contract, _client, _fee, tokenId);
         return tokenId;
     }
 
     function checkProxyMint(
         bytes memory _signature,
+        address _client,
         address _contract,
         uint256 _fee,
         uint256 _nonce,
-        uint256 _code
+        uint256 _code,
+        NoteUsing memory _noteData
     )
         public
         virtual
         view
-        returns(bool, address)
+        returns(bool)
     {
         require(isEnableItem(_contract) , "disabled token");
-        address _from = checkProxyMintSignature(_signature, _contract, _fee, _nonce, _code);
+        address _from = checkProxyMintSignature(_signature, _contract, _fee, _nonce, _code, _noteData);
+
         require(_from != address(0), "invalid signature");
-        require(IERC20Upgradeable(currency_token).balanceOf(_from) >= _fee, "lack of funds");
+        require(_from == _client, "address is not match");
+        if (_noteData.noteUnit > 0) {
+            require(note_token[_noteData.noteUnit] != address(0), "invalid note");
+            for (uint i = 0; i < _noteData.noteIds.length; i++) {
+                require(_noteData.noteIds[i] > 0);
+                require(IERC721Upgradeable(note_token[_noteData.noteUnit]).ownerOf(_noteData.noteIds[i]) == _from);
+            }
+            (, uint256 feeTotal) = SafeMathUpgradeable.tryMul(_noteData.noteUnit, _noteData.noteIds.length);
+            require(feeTotal >= _fee, "lack of funds");
+            require(IERC20Upgradeable(coin_token).balanceOf(msg.sender) >= feeTotal.sub(_fee), "lack of change");
+        } else {
+            require(IERC20Upgradeable(coin_token).balanceOf(_from) >= _fee, "lack of funds");
+        }
+
         require(_fee >= minimumTxFee, "minimum Tx Fee");
 
-        return (true, _from);
+        return true;
     }
 
     function checkProxyMintSignature(
@@ -189,10 +211,18 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         address _contract,
         uint256 _fee,
         uint256 _nonce,
-        uint256 _code
+        uint256 _code,
+        NoteUsing memory _noteData
     ) public virtual view returns(address) {
         require(signatures[_signature] == false, "used signature");
-        bytes32 hashedTx = proxyMintPreSignedHashing(_contract, _fee, _nonce, _code);
+        string memory noteDataString;
+        if (_noteData.noteUnit > 0) {
+            noteDataString = string(abi.encodePacked('note:', _noteData.noteUnit));
+            for (uint i = 0; i < _noteData.noteIds.length; i++) {
+                noteDataString = string(abi.encodePacked(noteDataString, _noteData.noteIds[i]));
+            }
+        }
+        bytes32 hashedTx = proxyMintPreSignedHashing(_contract, _fee, _nonce, _code, noteDataString);
         address _from = ECDSAUpgradeable.recover(ECDSAUpgradeable.toEthSignedMessageHash(hashedTx), _signature);
         return _from;
     }
@@ -201,20 +231,31 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         address _contract,
         uint256 _fee,
         uint256 _nonce,
-        uint256 _code
+        uint256 _code,
+        string memory _noteDataString
     )
         public
         virtual
         pure
         returns (bytes32)
     {
-        /* "0x92fac361": proxyMintPreSignedHashing(address,uint256,uint256,uint256) */
-        return keccak256(abi.encodePacked(bytes4(0x92fac361), _contract, _fee, _nonce, _code));
+        /* "0x92fac361": proxyMintPreSignedHashing(address,uint256,uint256,uint256,string) */
+        return keccak256(abi.encodePacked(bytes4(0x92fac361), _contract, _fee, _nonce, _code, _noteDataString));
     }
 
     function _payFee(address _from, uint256 _fee) internal virtual{
-        (bool success, ) = currency_token.call(abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", _from, msg.sender, _fee));
+        (bool success, ) = coin_token.call(abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", _from, msg.sender, _fee));
         require(success, "External function execution failed pay fee");
+    }
+
+    function _payFeeByNote(address _from, uint256 _fee, NoteUsing memory _noteData) internal virtual {
+        for (uint i = 0; i < _noteData.noteIds.length; i++) {
+            (bool success, ) = note_token[_noteData.noteUnit].call(abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", _from, msg.sender, _fee));
+            require(success, "External function execution failed pay fee");
+        }
+        (, uint256 feeTotal) = SafeMathUpgradeable.tryMul(_noteData.noteUnit, _noteData.noteIds.length);
+        (bool success2, ) = note_token[_noteData.noteUnit].call(abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", _from, msg.sender, feeTotal.sub(_fee)));
+        require(success2, "External function execution failed pay change");
     }
 
     function _externalMint(address _contract, address _owner, uint256 _code) internal virtual returns(uint256) {

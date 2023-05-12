@@ -14,7 +14,7 @@ async function main() {
   console.log("Mint deployed to:", logicContract.address);
 
   // Proxyコントラクトデプロイ
-  const ERC1967Proxy = await hre.ethers.getContractFactory("BlockSafariMint");
+  const ERC1967Proxy = await hre.ethers.getContractFactory("ERC1967Proxy");
   const data = Logic.interface.encodeFunctionData('initialize',[]);
   const erc1967Proxy = await ERC1967Proxy.deploy(logicContract.address, data);
   await erc1967Proxy.deployed();

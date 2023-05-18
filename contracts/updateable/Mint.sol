@@ -217,9 +217,14 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         require(signatures[_signature] == false, "used signature");
         string memory noteDataString;
         if (_noteData.noteUnit > 0) {
-            noteDataString = string(abi.encodePacked('note:', _noteData.noteUnit));
+            require(_noteData.noteIds.length > 0, "no notes");
+            noteDataString = string(abi.encodePacked(_noteData.noteUnit, ":"));
             for (uint i = 0; i < _noteData.noteIds.length; i++) {
-                noteDataString = string(abi.encodePacked(noteDataString, _noteData.noteIds[i]));
+                if (i == 0) {
+                    noteDataString = string(abi.encodePacked(noteDataString, _noteData.noteIds[i]));
+                } else {
+                    noteDataString = string(abi.encodePacked(",", noteDataString, _noteData.noteIds[i]));
+                }
             }
         }
         bytes32 hashedTx = proxyMintPreSignedHashing(_contract, _fee, _nonce, _code, noteDataString);
@@ -234,13 +239,12 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         uint256 _code,
         string memory _noteDataString
     )
-        public
-        virtual
+        private
         pure
         returns (bytes32)
     {
-        /* "0x92fac361": proxyMintPreSignedHashing(address,uint256,uint256,uint256,string) */
-        return keccak256(abi.encodePacked(bytes4(0x92fac361), _contract, _fee, _nonce, _code, _noteDataString));
+        /* "0x671c42b2": proxyMintPreSignedHashing(address,uint256,uint256,uint256,string) */
+        return keccak256(abi.encodePacked(bytes4(0x671c42b2), _contract, _fee, _nonce, _code, _noteDataString));
     }
 
     function _payFee(address _from, uint256 _fee) internal virtual{

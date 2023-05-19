@@ -2,11 +2,11 @@
 pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC721/ERC721Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "../storage/AnimalsStorage.sol";
 
-contract Animals is ERC721Upgradeable, OwnableUpgradeable, UUPSUpgradeable, AnimalsStorage {
+contract Animals is ERC721EnumerableUpgradeable, OwnableUpgradeable, UUPSUpgradeable, AnimalsStorage {
     // カウンターstructをuse
     using CountersUpgradeable for CountersUpgradeable.Counter;
 

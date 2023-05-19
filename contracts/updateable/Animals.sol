@@ -109,22 +109,6 @@ contract Animals is ERC721Upgradeable, OwnableUpgradeable, UUPSUpgradeable, Anim
         return ownerOf(codes[_code]);
     }
 
-    /**
-     * for opensea
-     */
-    function isApprovedForAll(
-        address _owner,
-        address _operator
-    ) public override virtual view returns (bool isOperator) {
-      // if OpenSea's ERC721 Proxy Address is detected, auto-return true
-        if (_operator == address(0x58807baD0B376efc12F5AD86aAc70E78ed67deaE)) {
-            return true;
-        }
-
-        // otherwise, use the default ERC721.isApprovedForAll()
-        return ERC721Upgradeable.isApprovedForAll(_owner, _operator);
-    }
-
     function _authorizeUpgrade(address) internal override virtual onlyOwner {}
 
 }

@@ -23,6 +23,9 @@ contract Animals is ERC721EnumerableUpgradeable, OwnableUpgradeable, UUPSUpgrade
         // __UUPSUpgradeable_init();
         uri = _uri;
         admin[0][msg.sender] = true;
+
+        // 最初のtokenIdを1に設定
+        _tokenIdCounter.increment();
     }
 
     function _baseURI() internal view virtual override returns (string memory) {
@@ -51,14 +54,14 @@ contract Animals is ERC721EnumerableUpgradeable, OwnableUpgradeable, UUPSUpgrade
         address _to,
         uint256 _code
     ) public virtual mintable returns(uint256) {
-        // インクリメント
-        _tokenIdCounter.increment();
+        require(codes[_code] == 0, "code exists");
 
         // 現在のIDを取得
         uint256 tokenId = _tokenIdCounter.current();
 
         codes[_code] = tokenId;
         _safeMint(_to, tokenId);
+        _tokenIdCounter.increment();
 
         return tokenId;
     }

@@ -24,7 +24,11 @@ contract OneThousandPuniNote is ERC721EnumerableUpgradeable, OwnableUpgradeable,
         admin[0][msg.sender] = true;
         unit = 1000;
         coin_token = _coinTokenAddress;
-        safeMint(msg.sender);// test
+    }
+
+    function setCurrencyToken(address _tokenAddress) public virtual onlyOwner {
+        require(_tokenAddress != address(0), "invalid tokenAddress");
+        coin_token = _tokenAddress;
     }
 
     /**

@@ -10,7 +10,7 @@ const path = require('path');
 
 async function main() {
   // Logicコントラクトをデプロイ
-  const Nft = await hre.ethers.getContractFactory("OneThousandPuniNote");
+  const Nft = await hre.ethers.getContractFactory("OneMillionPuniNote");
   const nft = await Nft.deploy();
   await nft.deployed();
   console.log("NFT deployed to:", nft.address);
@@ -18,7 +18,7 @@ async function main() {
   // Proxyコントラクトデプロイ
   const ERC1967Proxy = await hre.ethers.getContractFactory("ERC1967Proxy");
   const data = Nft.interface.encodeFunctionData('initialize',[
-    '0xD07f287f039078ECf443f182F6c218363e143a40', // coin contract
+    '0x9d06aA9Ac76994eaF0F17b1A2C3Fb076F77EB7eC', // coin contract
   ]);
   const erc1967Proxy = await ERC1967Proxy.deploy(
     nft.address,
@@ -28,7 +28,7 @@ async function main() {
   console.log("ERC1967Proxy deployed to:", erc1967Proxy.address);
 
   const myContractProxy = await ethers.getContractAt(
-    'OneThousandPuniNote',
+    'OneMillionPuniNote',
     erc1967Proxy.address,
   );
 

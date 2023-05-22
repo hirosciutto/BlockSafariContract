@@ -10,25 +10,30 @@ import "@openzeppelin/contracts-upgradeable/utils/StringsUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
 import "../storage/PuniNoteStorage.sol";
 
-contract OneThousandPuniNote is ERC721EnumerableUpgradeable, OwnableUpgradeable, UUPSUpgradeable, PuniNoteStorage {
+contract OneMillionPuniNote is ERC721EnumerableUpgradeable, OwnableUpgradeable, UUPSUpgradeable, PuniNoteStorage {
     // カウンターstructをuse
     using CountersUpgradeable for CountersUpgradeable.Counter;
     using SafeMathUpgradeable for uint256;
+
+    event SetCurrencyToken(address _tokenAddress);
+    event Deposit(uint256 _value);
+    event Withdraw(uint256 _value);
 
     constructor() {}
 
     function initialize(address _coinTokenAddress) public initializer {
         // name,symbol,データのURL設定
-        __ERC721_init("1000 PUNI NOTE", "kPUNI");
+        __ERC721_init("One Million PUNI NOTE", "MPUNI");
         __Ownable_init();
         admin[0][msg.sender] = true;
-        unit = 1000;
-        coin_token = _coinTokenAddress;
+        unit = 1000000;
+        setCurrencyToken(_coinTokenAddress);
     }
 
     function setCurrencyToken(address _tokenAddress) public virtual onlyOwner {
         require(_tokenAddress != address(0), "invalid tokenAddress");
         coin_token = _tokenAddress;
+        emit SetCurrencyToken(_tokenAddress);
     }
 
     /**
@@ -39,9 +44,9 @@ contract OneThousandPuniNote is ERC721EnumerableUpgradeable, OwnableUpgradeable,
 
         string memory svg = getSVG(tokenId);
         bytes memory json = abi.encodePacked(
-            '{"name": "1000 PUNI NOTE #',
+            '{"name": "', name(), ' #',
             StringsUpgradeable.toString(tokenId),
-            '", "description": "One Thousand PUNI NOTE is a full on-chain text NFT.", "image": "data:image/svg+xml;base64,',
+            '", "description": "', name(), ' is a full on-chain text NFT.", "image": "data:image/svg+xml;base64,',
             Base64Upgradeable.encode(bytes(svg)),
             '"}'
         );
@@ -97,7 +102,6 @@ contract OneThousandPuniNote is ERC721EnumerableUpgradeable, OwnableUpgradeable,
         uint256 _noteAmountRequested
     ) public virtual payable {
         // 数値チェック
-        require(_tokenIdCounter.current() <= 50000000 * (10**18), "note mint limit");
         (, uint256 depositValue) = SafeMathUpgradeable.tryMul(_noteAmountRequested, unit * (10**18));
         require(depositValue > 0, "invalid amount");
         // 実行者が両替できるほどのコインを持っているか？
@@ -137,6 +141,7 @@ contract OneThousandPuniNote is ERC721EnumerableUpgradeable, OwnableUpgradeable,
         if (refundAmount > 0) {
             payable(msg.sender).transfer(refundAmount);
         }
+        emit Deposit(depositValue);
     }
 
     /**
@@ -146,7 +151,9 @@ contract OneThousandPuniNote is ERC721EnumerableUpgradeable, OwnableUpgradeable,
         uint256[] memory _tokenIds
     ) public virtual payable {
         // 保管を確認
-        require(ERC20Upgradeable(coin_token).balanceOf(address(this)) >= _tokenIds.length.mul(unit * (10**18)), "lack of change");
+        (, uint256 payout) = SafeMathUpgradeable.tryMul(_tokenIds.length, unit * (10 ** 18));
+        require(payout > 0, "invalid amount");
+        require(ERC20Upgradeable(coin_token).balanceOf(address(this)) >= payout, "lack of change");
         // 関数の実行前に、残っているGASの量を取得する
         uint256 gasStart = gasleft();
         for (uint i = 0; i < _tokenIds.length; i++) {
@@ -157,7 +164,7 @@ contract OneThousandPuniNote is ERC721EnumerableUpgradeable, OwnableUpgradeable,
         }
 
         // 払い出し
-        (bool success, ) = coin_token.call(abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", address(this), msg.sender, _tokenIds.length.mul(unit * (10**18))));
+        (bool success, ) = coin_token.call(abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", address(this), msg.sender, payout));
         require(success, "External function execution failed payout");
 
         // 関数が使用したGASの量を計算する
@@ -168,6 +175,7 @@ contract OneThousandPuniNote is ERC721EnumerableUpgradeable, OwnableUpgradeable,
         if (refundAmount > 0) {
             payable(msg.sender).transfer(refundAmount);
         }
+        emit Withdraw(payout);
     }
 
     function safeMint(address _to) internal virtual {

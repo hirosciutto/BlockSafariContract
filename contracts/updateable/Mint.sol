@@ -162,6 +162,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
 
         // 未使用のETHを返還する
         uint256 refundAmount = msg.value.sub(gasUsed.mul(tx.gasprice));
+        require(refundAmount <= msg.value, "overflow");
         if (refundAmount > 0) {
             payable(msg.sender).transfer(refundAmount);
         }
@@ -183,6 +184,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         view
         returns(bool)
     {
+        require(!isPaused(), "paused");
         require(isEnableItem(_contract) , "disabled token");
         address _from = checkProxyMintSignature(_signature, _contract, _fee, _nonce, _code, _noteData);
 
@@ -192,11 +194,11 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
             require(note_token[_noteData.noteUnit] != address(0), "invalid note");
             for (uint i = 0; i < _noteData.noteIds.length; i++) {
                 require(_noteData.noteIds[i] > 0);
-                require(IERC721Upgradeable(note_token[_noteData.noteUnit]).ownerOf(_noteData.noteIds[i]) == _from);
+                require(IERC721Upgradeable(note_token[_noteData.noteUnit]).ownerOf(_noteData.noteIds[i]) == _from); // 紙幣の所有者確認
             }
-            (, uint256 feeTotal) = SafeMathUpgradeable.tryMul(_noteData.noteUnit, _noteData.noteIds.length);
+            (, uint256 feeTotal) = SafeMathUpgradeable.tryMul(_noteData.noteUnit, _noteData.noteIds.length); // 紙幣の総額
             require(feeTotal >= _fee, "lack of funds");
-            require(IERC20Upgradeable(coin_token).balanceOf(msg.sender) >= feeTotal.sub(_fee), "lack of change");
+            require(IERC20Upgradeable(coin_token).balanceOf(msg.sender) >= feeTotal.sub(_fee), "lack of change"); // 実行者がお釣りを持っているか？
         } else {
             require(IERC20Upgradeable(coin_token).balanceOf(_from) >= _fee, "lack of funds");
         }

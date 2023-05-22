@@ -9,11 +9,11 @@ const fs = require('fs');
 const path = require('path');
 
 async function main() {
-  const NewImplementation = await hre.ethers.getContractFactory("OneThousandPuniNote");
+  const NewImplementation = await hre.ethers.getContractFactory("OneMillionPuniNote");
   const newImplementation = await NewImplementation.deploy();
   await newImplementation.deployed();
 
-  const Proxy = await hre.ethers.getContractFactory("OneThousandPuniNote");
+  const Proxy = await hre.ethers.getContractFactory("OneMillionPuniNote");
   const proxy = await Proxy.attach("0xc468aE4469765E4626fDe19C63eEd5ba7586de42");
   await proxy.upgradeTo(newImplementation.address);
 

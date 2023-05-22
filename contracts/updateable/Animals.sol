@@ -99,7 +99,7 @@ contract Animals is ERC721EnumerableUpgradeable, OwnableUpgradeable, UUPSUpgrade
         return _exists(_tokenId);
     }
 
-    function updateBaseURI(string memory _uri) public virtual {
+    function updateBaseURI(string memory _uri) public onlyOwner {
         uri = _uri;
     }
 

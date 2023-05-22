@@ -42,16 +42,16 @@ module.exports = {
     //   chainId: 1,
     //   accounts: { mnemonic }
     // },
-    // mumbai: {
-    //   url: "https://polygon-mumbai.g.alchemy.com/v2/"+process.env.GOERLI_API_KEY,
-    //   chainId: 80001,
-    //   accounts: { mnemonic }
-    // },
-    // polygon: {
-    //   url: "https://polygon-mainnet.g.alchemy.com/v2/"+process.env.MAINNET_API_KEY,
-    //   chainId: 137,
-    //   accounts: { mnemonic }
-    // },
+    mumbai: {
+      url: "https://polygon-mumbai.g.alchemy.com/v2/"+process.env.MUMBAI_API_KEY,
+      chainId: 80001,
+      accounts: [ PRIVATEKEY ]
+    },
+    polygon: {
+      url: "https://polygon-mainnet.g.alchemy.com/v2/"+process.env.MAINNET_API_KEY,
+      chainId: 137,
+      accounts: [ PRIVATEKEY ]
+    },
     remote: {
       url: "https://hardhat.4dsystem.jp",
       chainId: 44617,

@@ -17,7 +17,7 @@ contract MintStorage is Initializable, Admin {
     // 購入に使用可能なERC20トークンのアドレス
     address internal coin_token;
     // 紙幣
-    mapping(uint32 => address) internal note_token;
+    mapping(uint256 => address) internal note_token;
 
     // 紙幣使用
     struct NoteUsing {

@@ -28,6 +28,7 @@ contract OneMillionPuniNote is ERC721EnumerableUpgradeable, OwnableUpgradeable, 
         admin[0][msg.sender] = true;
         unit = 1000000;
         setCurrencyToken(_coinTokenAddress);
+        _tokenIdCounter.increment();
     }
 
     function setCurrencyToken(address _tokenAddress) public virtual onlyOwner {
@@ -44,9 +45,9 @@ contract OneMillionPuniNote is ERC721EnumerableUpgradeable, OwnableUpgradeable, 
 
         string memory svg = getSVG(tokenId);
         bytes memory json = abi.encodePacked(
-            '{"name": "', name(), ' #',
+            '{"name": "One Million PUNI NOTE #',
             StringsUpgradeable.toString(tokenId),
-            '", "description": "', name(), ' is a full on-chain text NFT.", "image": "data:image/svg+xml;base64,',
+            '", "description": "One Million PUNI NOTE is a full on-chain text NFT.", "image": "data:image/svg+xml;base64,',
             Base64Upgradeable.encode(bytes(svg)),
             '"}'
         );
@@ -90,9 +91,7 @@ contract OneMillionPuniNote is ERC721EnumerableUpgradeable, OwnableUpgradeable, 
 
     function setImageChunk(uint256 chunkIndex, string memory data) public onlyOwner {
         imageChunks[chunkIndex] = data;
-        if (chunkIndex + 1 > totalChunks) {
-            totalChunks = chunkIndex + 1;
-        }
+        totalChunks = chunkIndex + 1;
     }
 
     /**
@@ -188,7 +187,7 @@ contract OneMillionPuniNote is ERC721EnumerableUpgradeable, OwnableUpgradeable, 
     }
 
     modifier onlyTrusted() {
-        require(trusted[msg.sender] == true);
+        require(trusted[msg.sender] == true, "untrusted");
         _;
     }
 
@@ -211,7 +210,7 @@ contract OneMillionPuniNote is ERC721EnumerableUpgradeable, OwnableUpgradeable, 
      * 外部からの信頼できるtransferFrom
      */
     function externalTransferFrom(address _from, address _to, uint256 _tokenId) onlyTrusted public virtual {
-        require(_from == ERC721Upgradeable.ownerOf(_tokenId), "invalid owner");
+        require(_from == ownerOf(_tokenId), "invalid owner");
         _transfer(_from, _to, _tokenId);
     }
 

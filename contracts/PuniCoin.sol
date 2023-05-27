@@ -16,7 +16,7 @@ contract PuniCoin is ERC20("PuniCoin", "PUNI"), Ownable {
     }
 
     modifier onlyTrusted() {
-        require(trusted[msg.sender] == true);
+        require(trusted[msg.sender] == true, "untrusted");
         _;
     }
 

@@ -9,15 +9,20 @@ const fs = require('fs');
 const path = require('path');
 
 async function main() {
-  const NewImplementation = await hre.ethers.getContractFactory("OneMillionPuniNote");
-  const newImplementation = await NewImplementation.deploy();
-  await newImplementation.deployed();
-
   const Proxy = await hre.ethers.getContractFactory("OneMillionPuniNote");
   const proxy = await Proxy.attach("0x2269bD05cb73809C5e3Aa0bFE3CdFF60c31B5853");
-  await proxy.upgradeTo(newImplementation.address);
 
-  console.log('upgrade complete', newImplementation.address);
+  const dataPath = path.join(__dirname, 'data', 'noteDataUrlS.txt');
+  const imageData = fs.readFileSync(dataPath, 'utf8');
+
+  const chunkSize = 10240; // チャンクサイズ（バイト単位）
+  const totalChunks = Math.ceil(imageData.length / chunkSize);
+
+  for (let i = 0; i < totalChunks; i++) {
+    const chunkData = imageData.slice(i * chunkSize, (i + 1) * chunkSize);
+    await proxy.setImageChunk(i, chunkData);
+  }
+
 }
 
 // We recommend this pattern to be able to use async/await everywhere

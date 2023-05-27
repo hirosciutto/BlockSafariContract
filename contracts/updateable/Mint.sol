@@ -23,6 +23,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
     event SetEnableCurrency(address indexed _contract);
     event ChangeProxyRegulationCanceled(uint8 status);
     event ProxyMint(address indexed _contract, address indexed _from, uint256 _fee, uint256 tokenId);
+    event SetEnableNote(uint256 _unit, address indexed _contract);
 
     constructor() {}
 
@@ -49,7 +50,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
      * 機能の停止
      */
     function pause() public virtual onlyAdmin(0) {
-        require(!paused);
+        require(!paused, "already paused");
         paused = true;
         emit Pause();
     }
@@ -58,7 +59,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
      * 機能の解除
      */
     function restart() public virtual onlyAdmin(0) {
-        require(paused);
+        require(paused, "already started");
         paused = false;
         emit Restart();
     }
@@ -67,7 +68,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
      * 使用可能な通貨トークンのアドレスを設定する
      */
     function setEnableCurrency(address _erc20address) public virtual onlyOwner {
-        require(_erc20address != address(0));
+        require(_erc20address != address(0), "invalid address");
         coin_token = _erc20address;
         emit SetEnableCurrency(_erc20address);
     }
@@ -76,13 +77,23 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         return coin_token;
     }
 
+    function setEnableNote(address _erc721address, uint256 _unit) public virtual onlyOwner {
+        require(_erc721address != address(0), "invalid address");
+        note_token[_unit] = _erc721address;
+        emit SetEnableNote(_unit, _erc721address);
+    }
+
+    function isEnableNote(uint256 _unit) public view virtual returns(address) {
+        return note_token[_unit];
+    }
+
     /**
      * 使用可能なNFTのアドレスを設定する
      * 1: Mint可能
      * 2: Mint/Crossbreed可能
      */
     function setEnableItem(address _erc721address, bool _status) public virtual onlyOwner {
-        require(_erc721address != address(0));
+        require(_erc721address != address(0), "invalid address");
         enable_tokens[_erc721address] = _status;
         emit SetEnableItem(_erc721address, _status);
     }
@@ -129,7 +140,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         uint256 _fee,
         uint256 _nonce,
         uint256 _code,
-        NoteUsing memory _noteData
+        uint256 _tokenId
     )
         nonReentrant
         onlyAgent
@@ -138,7 +149,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         virtual
         returns(uint256)
     {
-        checkProxyMint(_signature, _client, _contract, _fee, _nonce, _code, _noteData);
+        checkProxyMint(_signature, _client, _contract, _fee, _nonce, _code, _tokenId);
 
         // 関数の実行前に、残っているGASの量を取得する
         uint256 gasStart = gasleft();
@@ -146,9 +157,10 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         // targetContractに外部関数呼び出しをする
         // fee支払い
         if (_fee > 0) {
-            if (_noteData.noteUnit > 0) {
-                // 紙幣決済
-                _payFeeByNote(_client, _fee, _noteData);
+            if (_tokenId > 0) {
+                uint256 note_value = 1000000 * (10 ** 18);
+                _payFeeByNote(_client, _tokenId);
+                _payCharge(_client, note_value.sub(_fee));
             } else {
                 _payFee(_client, _fee);
             }
@@ -170,6 +182,9 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         return tokenId;
     }
 
+    /**
+     * バリデーション
+     */
     function checkProxyMint(
         bytes memory _signature,
         address _client,
@@ -177,7 +192,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         uint256 _fee,
         uint256 _nonce,
         uint256 _code,
-        NoteUsing memory _noteData
+        uint256 _tokenId
     )
         public
         virtual
@@ -186,50 +201,41 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
     {
         require(!isPaused(), "paused");
         require(isEnableItem(_contract) , "disabled token");
-        address _from = checkProxyMintSignature(_signature, _contract, _fee, _nonce, _code, _noteData);
+        require(_fee >= minimumTxFee, "minimum Tx Fee");
+        if (_tokenId > 0) {
+            uint256 noteValue = 1000000 * (10 ** 18);
+            require(noteValue >= _fee, "lack of note's value");
+            (bool success, uint256 charges) = SafeMathUpgradeable.trySub(noteValue, _fee);
+            require(success, "underflow");
+            require(getCoinBalances(msg.sender) >= charges, string.concat("lack of charges:", StringsUpgradeable.toString(charges/(10 ** 18)), "/", StringsUpgradeable.toString(getCoinBalances(msg.sender)) ));
+        }
+        address _from = checkProxyMintSignature(_signature, _contract, _fee, _nonce, _code, _tokenId);
 
         require(_from != address(0), "invalid signature");
         require(_from == _client, "address is not match");
-        if (_noteData.noteUnit > 0) {
-            require(note_token[_noteData.noteUnit] != address(0), "invalid note");
-            for (uint i = 0; i < _noteData.noteIds.length; i++) {
-                require(_noteData.noteIds[i] > 0);
-                require(IERC721Upgradeable(note_token[_noteData.noteUnit]).ownerOf(_noteData.noteIds[i]) == _from); // 紙幣の所有者確認
-            }
-            (, uint256 feeTotal) = SafeMathUpgradeable.tryMul(_noteData.noteUnit, _noteData.noteIds.length); // 紙幣の総額
-            require(feeTotal >= _fee, "lack of funds");
-            require(IERC20Upgradeable(coin_token).balanceOf(msg.sender) >= feeTotal.sub(_fee), "lack of change"); // 実行者がお釣りを持っているか？
-        } else {
-            require(IERC20Upgradeable(coin_token).balanceOf(_from) >= _fee, "lack of funds");
-        }
 
-        require(_fee >= minimumTxFee, "minimum Tx Fee");
+        if (_tokenId > 0) {
+            require(IERC721Upgradeable(note_token[100000]).ownerOf(_tokenId) == _client, "no ownership");
+        } else {
+            require(getCoinBalances(_from) >= _fee, "lack of funds");
+        }
 
         return true;
     }
 
+    /**
+     *
+     */
     function checkProxyMintSignature(
         bytes memory _signature,
         address _contract,
         uint256 _fee,
         uint256 _nonce,
         uint256 _code,
-        NoteUsing memory _noteData
+        uint256 _tokenId
     ) public virtual view returns(address) {
         require(signatures[_signature] == false, "used signature");
-        string memory noteDataString;
-        if (_noteData.noteUnit > 0) {
-            require(_noteData.noteIds.length > 0, "no notes");
-            noteDataString = string(abi.encodePacked(_noteData.noteUnit, ":"));
-            for (uint i = 0; i < _noteData.noteIds.length; i++) {
-                if (i == 0) {
-                    noteDataString = string(abi.encodePacked(noteDataString, _noteData.noteIds[i]));
-                } else {
-                    noteDataString = string(abi.encodePacked(",", noteDataString, _noteData.noteIds[i]));
-                }
-            }
-        }
-        bytes32 hashedTx = proxyMintPreSignedHashing(_contract, _fee, _nonce, _code, noteDataString);
+        bytes32 hashedTx = proxyMintPreSignedHashing(_contract, _fee, _nonce, _code, _tokenId);
         address _from = ECDSAUpgradeable.recover(ECDSAUpgradeable.toEthSignedMessageHash(hashedTx), _signature);
         return _from;
     }
@@ -239,14 +245,14 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         uint256 _fee,
         uint256 _nonce,
         uint256 _code,
-        string memory _noteDataString
+        uint256 _tokenId
     )
         private
         pure
         returns (bytes32)
     {
-        /* "0x671c42b2": proxyMintPreSignedHashing(address,uint256,uint256,uint256,string) */
-        return keccak256(abi.encodePacked(bytes4(0x671c42b2), _contract, _fee, _nonce, _code, _noteDataString));
+        /* "0x361c4ee6": proxyMintPreSignedHashing(address,uint256,uint256,uint256,uint256) */
+        return keccak256(abi.encodePacked(bytes4(0x361c4ee6), _contract, _fee, _nonce, _code, _tokenId));
     }
 
     function _payFee(address _from, uint256 _fee) internal virtual{
@@ -254,14 +260,15 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         require(success, "External function execution failed pay fee");
     }
 
-    function _payFeeByNote(address _from, uint256 _fee, NoteUsing memory _noteData) internal virtual {
-        for (uint i = 0; i < _noteData.noteIds.length; i++) {
-            (bool success, ) = note_token[_noteData.noteUnit].call(abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", _from, msg.sender, _fee));
-            require(success, "External function execution failed pay fee");
-        }
-        (, uint256 feeTotal) = SafeMathUpgradeable.tryMul(_noteData.noteUnit, _noteData.noteIds.length);
-        (bool success2, ) = note_token[_noteData.noteUnit].call(abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", _from, msg.sender, feeTotal.sub(_fee)));
-        require(success2, "External function execution failed pay change");
+    function _payFeeByNote(address _from, uint256 _tokenId) internal virtual{
+        address note = note_token[100000];
+        (bool success, ) = note.call(abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", _from, msg.sender, _tokenId));
+        require(success, "External function execution failed pay fee");
+    }
+
+    function _payCharge(address _to, uint256 _charge) internal virtual{
+        (bool success, ) = coin_token.call(abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", msg.sender, _to, _charge));
+        require(success, "External function execution failed pay fee");
     }
 
     function _externalMint(address _contract, address _owner, uint256 _code) internal virtual returns(uint256) {
@@ -270,6 +277,10 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         require(success, "External function execution failed external mint");
         uint256 tokenId = abi.decode(res, (uint256));
         return tokenId;
+    }
+
+    function getCoinBalances(address _account) public view returns(uint256) {
+        return IERC20Upgradeable(coin_token).balanceOf(_account);
     }
 
     function _authorizeUpgrade(address) internal override onlyOwner {}

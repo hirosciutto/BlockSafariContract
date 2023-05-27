@@ -42,13 +42,11 @@ async function main() {
     const chunkData = imageData.slice(i * chunkSize, (i + 1) * chunkSize);
     // const chunkBytes = hre.ethers.utils.hexlify(hre.ethers.utils.toUtf8Bytes(chunkData));
     // await myContractProxy.setImageChunk(i, chunkBytes);
-    console.log(chunkData);
+    // console.log(chunkData);
     await myContractProxy.setImageChunk(i, chunkData);
   }
-
-  const svg = await myContractProxy.getSVG(0);
-
-  console.log('Image upload complete' + svg);
+  // const svg = await myContractProxy.getSVG(0);
+  // console.log('Image upload complete: ' + svg);
 
   const name = await myContractProxy.name();
   const owner = await myContractProxy.owner();

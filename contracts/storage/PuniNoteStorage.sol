@@ -4,9 +4,7 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/CountersUpgradeable.sol";
 
-import "../utils/Admin.sol";
-
-contract PuniNoteStorage is Initializable,Admin {
+contract PuniNoteStorage is Initializable {
 
     // カウンターstructをuse
     using CountersUpgradeable for CountersUpgradeable.Counter;

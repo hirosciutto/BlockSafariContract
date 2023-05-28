@@ -12,9 +12,9 @@ async function main() {
   await newImplementation.deployed();
 
   const Proxy = await hre.ethers.getContractFactory("Mint");
-  const proxy = await Proxy.attach("0x68A43ab6C5Ec86603edc7BB54dDa541d5C40dE81");
+  const proxy = await Proxy.attach("0xa5CcD34e8f04927A41B122C1c3F4AF6DEb7E560E");
   await proxy.upgradeTo(newImplementation.address);
-  await proxy.setEnableNote("0x2269bD05cb73809C5e3Aa0bFE3CdFF60c31B5853", 1000000);
+  // await proxy.setEnableNote("0x2269bD05cb73809C5e3Aa0bFE3CdFF60c31B5853", 1000000);
 
   console.log('upgrade complete', newImplementation.address);
 }

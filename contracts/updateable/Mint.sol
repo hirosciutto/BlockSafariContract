@@ -34,7 +34,6 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
          *
          * 購入の代行は「(販売額*合計手数料率/100)*purchaseFeeRate/100」となる
          */
-        admin[0][msg.sender] = true;
         __Ownable_init();
         __ReentrancyGuard_init();
     }
@@ -49,7 +48,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
     /**
      * 機能の停止
      */
-    function pause() public virtual onlyAdmin(0) {
+    function pause() public virtual onlyAdmin {
         require(!paused, "already paused");
         paused = true;
         emit Pause();
@@ -58,7 +57,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
     /**
      * 機能の解除
      */
-    function restart() public virtual onlyAdmin(0) {
+    function restart() public virtual onlyAdmin {
         require(paused, "already started");
         paused = false;
         emit Restart();
@@ -123,7 +122,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
     }
 
     modifier onlyAgent() {
-        require(proxyRegulationCanceled > 0 || admin[1][msg.sender] == true || owner() == msg.sender, "you don't have authority of proxy");
+        require(proxyRegulationCanceled > 0 || agent[msg.sender] == true || owner() == msg.sender, "you don't have authority of proxy");
         _;
     }
 
@@ -135,6 +134,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
      */
     function proxyMint(
         bytes memory _signature, // 署名
+        address _agent,
         address _client,
         address _contract,
         uint256 _fee,
@@ -149,7 +149,8 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         virtual
         returns(uint256)
     {
-        checkProxyMint(_signature, _client, _contract, _fee, _nonce, _code, _tokenId);
+        require(_agent == msg.sender, "agent information is not match");
+        checkProxyMint(_signature, _agent, _client, _contract, _fee, _nonce, _code, _tokenId);
 
         // 関数の実行前に、残っているGASの量を取得する
         uint256 gasStart = gasleft();
@@ -187,6 +188,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
      */
     function checkProxyMint(
         bytes memory _signature,
+        address _agent,
         address _client,
         address _contract,
         uint256 _fee,
@@ -203,20 +205,20 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         require(isEnableItem(_contract) , "disabled token");
         require(_fee >= minimumTxFee, "minimum Tx Fee");
         if (_tokenId > 0) {
-            uint256 noteValue = 1000000 * (10 ** 18);
+            uint256 _unit = 1000000;
+            require(IERC721Upgradeable(note_token[_unit]).ownerOf(_tokenId) == _client, "no ownership");
+            uint256 noteValue = _unit * (10 ** 18);
             require(noteValue >= _fee, "lack of note's value");
             (bool success, uint256 charges) = SafeMathUpgradeable.trySub(noteValue, _fee);
             require(success, "underflow");
-            require(getCoinBalances(msg.sender) >= charges, string.concat("lack of charges:", StringsUpgradeable.toString(charges/(10 ** 18)), "/", StringsUpgradeable.toString(getCoinBalances(msg.sender)) ));
+            require(getCoinBalances(_agent) >= charges, "lack of charges");
         }
         address _from = checkProxyMintSignature(_signature, _contract, _fee, _nonce, _code, _tokenId);
 
         require(_from != address(0), "invalid signature");
         require(_from == _client, "address is not match");
 
-        if (_tokenId > 0) {
-            require(IERC721Upgradeable(note_token[100000]).ownerOf(_tokenId) == _client, "no ownership");
-        } else {
+        if (_tokenId == 0) {
             require(getCoinBalances(_from) >= _fee, "lack of funds");
         }
 

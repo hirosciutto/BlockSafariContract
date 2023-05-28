@@ -22,7 +22,6 @@ contract Animals is ERC721EnumerableUpgradeable, OwnableUpgradeable, UUPSUpgrade
         __Ownable_init();
         // __UUPSUpgradeable_init();
         uri = _uri;
-        admin[0][msg.sender] = true;
 
         // 最初のtokenIdを1に設定
         _tokenIdCounter.increment();
@@ -43,7 +42,7 @@ contract Animals is ERC721EnumerableUpgradeable, OwnableUpgradeable, UUPSUpgrade
     }
 
     modifier mintable() {
-        require(admin[0][msg.sender] == true || owner() == msg.sender || isTrusted(msg.sender), "caller is not the owner");
+        require(owner() == msg.sender || isTrusted(msg.sender), "caller is not the owner");
         _;
     }
 

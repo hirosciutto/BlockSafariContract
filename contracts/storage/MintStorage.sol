@@ -19,12 +19,6 @@ contract MintStorage is Initializable, Admin {
     // 紙幣
     mapping(uint256 => address) internal note_token;
 
-    // 紙幣使用
-    struct NoteUsing {
-        uint32 noteUnit;
-        uint256[] noteIds;
-    }
-
     // 自由仲介規制解除 0:規制 1:解除
     uint8 internal proxyRegulationCanceled;
 

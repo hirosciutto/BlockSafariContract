@@ -34,7 +34,6 @@ contract Crossbreed is UUPSUpgradeable, ReentrancyGuardUpgradeable, CrossbreedSt
          *
          * 購入の代行は「(販売額*合計手数料率/100)*purchaseFeeRate/100」となる
          */
-        admin[0][msg.sender] = true;
         crossbreedLockDays = 60; // 60日
         __Ownable_init();
         __ReentrancyGuard_init();
@@ -50,7 +49,7 @@ contract Crossbreed is UUPSUpgradeable, ReentrancyGuardUpgradeable, CrossbreedSt
     /**
      * 機能の停止
      */
-    function pause() public virtual onlyAdmin(0) {
+    function pause() public virtual onlyAdmin {
         require(!paused);
         paused = true;
         emit Pause();
@@ -59,7 +58,7 @@ contract Crossbreed is UUPSUpgradeable, ReentrancyGuardUpgradeable, CrossbreedSt
     /**
      * 機能の解除
      */
-    function restart() public virtual onlyAdmin(0) {
+    function restart() public virtual onlyAdmin {
         require(paused);
         paused = false;
         emit Restart();
@@ -114,7 +113,7 @@ contract Crossbreed is UUPSUpgradeable, ReentrancyGuardUpgradeable, CrossbreedSt
     }
 
     modifier onlyAgent() {
-        require(proxyRegulationCanceled > 0 || admin[1][msg.sender] == true || owner() == msg.sender, "you don't have authority of proxy");
+        require(proxyRegulationCanceled > 0 || agent[msg.sender] == true || owner() == msg.sender, "you don't have authority of proxy");
         _;
     }
 

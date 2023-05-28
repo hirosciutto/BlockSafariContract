@@ -30,7 +30,6 @@ abstract contract Market is UUPSUpgradeable, ReentrancyGuardUpgradeable, MarketS
          *
          * 購入の代行は「(販売額*合計手数料率/100)*purchaseFeeRate/100」となる
          */
-        admin[0][msg.sender] = true;
         minimumTxFee = 1; // 1XAFARI
         purchaseFeeRate = 80; // 80%
         __Ownable_init();
@@ -47,7 +46,7 @@ abstract contract Market is UUPSUpgradeable, ReentrancyGuardUpgradeable, MarketS
     /**
      * 機能の停止
      */
-    function pause() public virtual onlyAdmin(0) {
+    function pause() public virtual onlyAdmin {
         require(!paused);
         paused = true;
     }
@@ -55,7 +54,7 @@ abstract contract Market is UUPSUpgradeable, ReentrancyGuardUpgradeable, MarketS
     /**
      * 機能の解除
      */
-    function restart() public virtual onlyAdmin(0) {
+    function restart() public virtual onlyAdmin {
         require(paused);
         paused = false;
     }
@@ -91,7 +90,7 @@ abstract contract Market is UUPSUpgradeable, ReentrancyGuardUpgradeable, MarketS
     }
 
     modifier onlyAgent() {
-        require(proxyRegulationCanceled > 0 || admin[1][msg.sender] == true || owner() == msg.sender, "you don't have authority of proxy");
+        require(proxyRegulationCanceled > 0 || agent[msg.sender] == true || owner() == msg.sender, "you don't have authority of proxy");
         _;
     }
 
@@ -130,7 +129,7 @@ abstract contract Market is UUPSUpgradeable, ReentrancyGuardUpgradeable, MarketS
     )
         public
         view
-        onlyAdmin(1)
+        onlyAgent
         returns(bool, address)
     {
         require(isSaleableItemContract(_nftAddress), "invalid nft token");
@@ -178,7 +177,7 @@ abstract contract Market is UUPSUpgradeable, ReentrancyGuardUpgradeable, MarketS
     {
         require(!paused, "this contract is paused now");
         // 販売規制解除前はcontract ownerかadminのみが販売元足りえる
-        require(salesRegulationCanceled > 0 || admin[0][_from] == true || owner() == _from, "you don't have authority of sale");
+        require(salesRegulationCanceled > 0 || admin[_from] == true || owner() == _from, "you don't have authority of sale");
         require(IERC721Upgradeable(_nftAddress).ownerOf(_tokenId) == _from, "not owned"); // NFTの所有確認
 
         // 金額を指定

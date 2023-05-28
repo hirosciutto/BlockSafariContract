@@ -25,7 +25,6 @@ contract OneMillionPuniNote is ERC721EnumerableUpgradeable, OwnableUpgradeable, 
         // name,symbol,データのURL設定
         __ERC721_init("One Million PUNI NOTE", "MPUNI");
         __Ownable_init();
-        admin[0][msg.sender] = true;
         unit = 1000000;
         setCurrencyToken(_coinTokenAddress);
         _tokenIdCounter.increment();

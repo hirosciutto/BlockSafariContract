@@ -263,14 +263,14 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
     }
 
     function _payFeeByNote(address _from, uint256 _tokenId) internal virtual{
-        address note = note_token[100000];
+        address note = note_token[1000000];
         (bool success, ) = note.call(abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", _from, msg.sender, _tokenId));
-        require(success, "External function execution failed pay fee");
+        require(success, "External function execution failed pay fee by note");
     }
 
     function _payCharge(address _to, uint256 _charge) internal virtual{
         (bool success, ) = coin_token.call(abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", msg.sender, _to, _charge));
-        require(success, "External function execution failed pay fee");
+        require(success, "External function execution failed pay charge");
     }
 
     function _externalMint(address _contract, address _owner, uint256 _code) internal virtual returns(uint256) {

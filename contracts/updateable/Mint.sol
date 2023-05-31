@@ -29,10 +29,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
 
     function initialize() public initializer {
         /**
-         * 1XAFARI ≒ 0.15MATIC(150000000000000000)
-         * 販売額*合計手数料率/100がminimumTxFee以上である必要がある
-         *
-         * 購入の代行は「(販売額*合計手数料率/100)*purchaseFeeRate/100」となる
+         * ownerの設定とリエントランシ初期化のみ
          */
         __Ownable_init();
         __ReentrancyGuard_init();
@@ -140,7 +137,8 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         uint256 _fee,
         uint256 _nonce,
         uint256 _code,
-        uint256 _tokenId
+        uint256 _noteUnit,
+        uint256 _noteId
     )
         nonReentrant
         onlyAgent
@@ -150,7 +148,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         returns(uint256)
     {
         require(_agent == msg.sender, "agent information is not match");
-        checkProxyMint(_signature, _agent, _client, _contract, _fee, _nonce, _code, _tokenId);
+        checkProxyMint(_signature, _agent, _client, _contract, _fee, _nonce, _code, _noteUnit, _noteId);
 
         // 関数の実行前に、残っているGASの量を取得する
         uint256 gasStart = gasleft();
@@ -158,9 +156,9 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         // targetContractに外部関数呼び出しをする
         // fee支払い
         if (_fee > 0) {
-            if (_tokenId > 0) {
-                uint256 note_value = 1000000 * (10 ** 18);
-                _payFeeByNote(_client, _tokenId);
+            if (_noteId > 0 && _noteUnit > 0) {
+                uint256 note_value = _noteUnit * (10 ** 18);
+                _payFeeByNote(_client, _noteUnit, _noteId);
                 _payCharge(_client, note_value.sub(_fee));
             } else {
                 _payFee(_client, _fee);
@@ -194,7 +192,8 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         uint256 _fee,
         uint256 _nonce,
         uint256 _code,
-        uint256 _tokenId
+        uint256 _noteUnit,
+        uint256 _noteId
     )
         public
         virtual
@@ -204,21 +203,21 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         require(!isPaused(), "paused");
         require(isEnableItem(_contract) , "disabled token");
         require(_fee >= minimumTxFee, "minimum Tx Fee");
-        if (_tokenId > 0) {
-            uint256 _unit = 1000000;
-            require(IERC721Upgradeable(note_token[_unit]).ownerOf(_tokenId) == _client, "no ownership");
-            uint256 noteValue = _unit * (10 ** 18);
+        if (_noteId > 0 && _noteUnit > 0) {
+            require(note_token[_noteUnit] != address(0), 'invalid note unit');
+            require(IERC721Upgradeable(note_token[_noteUnit]).ownerOf(_noteId) == _client, "no ownership");
+            uint256 noteValue = _noteUnit * (10 ** 18);
             require(noteValue >= _fee, "lack of note's value");
             (bool success, uint256 charges) = SafeMathUpgradeable.trySub(noteValue, _fee);
             require(success, "underflow");
             require(getCoinBalances(_agent) >= charges, "lack of charges");
         }
-        address _from = checkProxyMintSignature(_signature, _contract, _fee, _nonce, _code, _tokenId);
+        address _from = checkProxyMintSignature(_signature, _contract, _fee, _nonce, _code, _noteUnit, _noteId);
 
         require(_from != address(0), "invalid signature");
         require(_from == _client, "address is not match");
 
-        if (_tokenId == 0) {
+        if (_noteId == 0) {
             require(getCoinBalances(_from) >= _fee, "lack of funds");
         }
 
@@ -226,7 +225,7 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
     }
 
     /**
-     *
+     * 署名の検証
      */
     function checkProxyMintSignature(
         bytes memory _signature,
@@ -234,10 +233,11 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         uint256 _fee,
         uint256 _nonce,
         uint256 _code,
-        uint256 _tokenId
+        uint256 _noteUnit,
+        uint256 _noteId
     ) public virtual view returns(address) {
         require(signatures[_signature] == false, "used signature");
-        bytes32 hashedTx = proxyMintPreSignedHashing(_contract, _fee, _nonce, _code, _tokenId);
+        bytes32 hashedTx = proxyMintPreSignedHashing(_contract, _fee, _nonce, _code, _noteUnit, _noteId);
         address _from = ECDSAUpgradeable.recover(ECDSAUpgradeable.toEthSignedMessageHash(hashedTx), _signature);
         return _from;
     }
@@ -247,14 +247,15 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         uint256 _fee,
         uint256 _nonce,
         uint256 _code,
-        uint256 _tokenId
+        uint256 _noteUnit,
+        uint256 _noteId
     )
         private
         pure
         returns (bytes32)
     {
-        /* "0x361c4ee6": proxyMintPreSignedHashing(address,uint256,uint256,uint256,uint256) */
-        return keccak256(abi.encodePacked(bytes4(0x361c4ee6), _contract, _fee, _nonce, _code, _tokenId));
+        /* "0x11d14e01": proxyMintPreSignedHashing(address,uint256,uint256,uint256,uint256,uint256) */
+        return keccak256(abi.encodePacked(bytes4(0x11d14e01), _contract, _fee, _nonce, _code, _noteUnit, _noteId));
     }
 
     function _payFee(address _from, uint256 _fee) internal virtual{
@@ -262,9 +263,9 @@ contract Mint is UUPSUpgradeable, ReentrancyGuardUpgradeable, MintStorage {
         require(success, "External function execution failed pay fee");
     }
 
-    function _payFeeByNote(address _from, uint256 _tokenId) internal virtual{
-        address note = note_token[1000000];
-        (bool success, ) = note.call(abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", _from, msg.sender, _tokenId));
+    function _payFeeByNote(address _from, uint256 _noteUnit, uint256 _noteId) internal virtual{
+        address note = note_token[_noteUnit];
+        (bool success, ) = note.call(abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", _from, msg.sender, _noteId));
         require(success, "External function execution failed pay fee by note");
     }
 

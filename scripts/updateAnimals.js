@@ -12,7 +12,9 @@ async function main() {
   await newImplementation.deployed();
 
   const Proxy = await hre.ethers.getContractFactory("Animals");
-  const proxy = await Proxy.attach("0xE90E33E1A3865344c174622aC93926C958249F0C");
+  const proxy = await Proxy.attach(
+    "0x21b63e7CBcaf264e4058854506c2E8f2E2D46EA5" // mumbai
+  );
   await proxy.upgradeTo(newImplementation.address);
 
   console.log('upgrade complete', newImplementation.address);

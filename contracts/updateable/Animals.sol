@@ -4,6 +4,7 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC721/extensions/ERC721EnumerableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/StringsUpgradeable.sol";
 import "../storage/AnimalsStorage.sol";
 
 contract Animals is ERC721EnumerableUpgradeable, OwnableUpgradeable, UUPSUpgradeable, AnimalsStorage {
@@ -25,6 +26,7 @@ contract Animals is ERC721EnumerableUpgradeable, OwnableUpgradeable, UUPSUpgrade
 
         // 最初のtokenIdを1に設定
         _tokenIdCounter.increment();
+        idCodes.push(0);
     }
 
     function _baseURI() internal view virtual override returns (string memory) {
@@ -34,11 +36,11 @@ contract Animals is ERC721EnumerableUpgradeable, OwnableUpgradeable, UUPSUpgrade
     /**
      * @dev See {IERC721Metadata-tokenURI}.
      */
-    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
-        _requireMinted(tokenId);
+    function tokenURI(uint256 _tokenId) public view virtual override returns (string memory) {
+        _requireMinted(_tokenId);
 
         string memory baseURI = _baseURI();
-        return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId, ".json")) : "";
+        return string(abi.encodePacked(baseURI, StringsUpgradeable.toString(idCodes[_tokenId]), ".json"));
     }
 
     modifier mintable() {
@@ -59,6 +61,7 @@ contract Animals is ERC721EnumerableUpgradeable, OwnableUpgradeable, UUPSUpgrade
         uint256 tokenId = _tokenIdCounter.current();
 
         codes[_code] = tokenId;
+        idCodes.push(_code);
         _safeMint(_to, tokenId);
         _tokenIdCounter.increment();
 
@@ -102,8 +105,16 @@ contract Animals is ERC721EnumerableUpgradeable, OwnableUpgradeable, UUPSUpgrade
         uri = _uri;
     }
 
+    function getBaseURI() public view returns(string memory) {
+        return uri;
+    }
+
     function codeId(uint256 _code) public virtual view returns(uint256) {
         return codes[_code];
+    }
+
+    function idCode(uint256 _tokenId) public virtual view returns(uint256) {
+        return idCodes[_tokenId];
     }
 
     function codeOwnerOf(uint256 _code) public virtual view returns(address) {

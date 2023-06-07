@@ -4,9 +4,7 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/CountersUpgradeable.sol";
 
-import "../utils/Admin.sol";
-
-contract AnimalsStorage is Initializable,Admin {
+contract AnimalsStorage is Initializable {
 
     // カウンターstructをuse
     using CountersUpgradeable for CountersUpgradeable.Counter;
@@ -19,4 +17,6 @@ contract AnimalsStorage is Initializable,Admin {
     string internal uri;
 
     mapping(uint256 => uint256) internal codes;
+
+    uint256[] internal idCodes;
 }

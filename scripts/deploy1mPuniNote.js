@@ -18,7 +18,6 @@ async function main() {
   // Proxyコントラクトデプロイ
   const ERC1967Proxy = await hre.ethers.getContractFactory("ERC1967Proxy");
   const data = Nft.interface.encodeFunctionData('initialize',[
-    // '0x9d06aA9Ac76994eaF0F17b1A2C3Fb076F77EB7eC', // mumbai
     '0xD07f287f039078ECf443f182F6c218363e143a40' // mainnet
   ]);
   const erc1967Proxy = await ERC1967Proxy.deploy(

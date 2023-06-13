@@ -18,7 +18,8 @@ async function main() {
   const data = Nft.interface.encodeFunctionData('initialize',[
     'ANIMALS',
     'ANIMALS',
-    'https://dev.blocksafari.org/storage/data/'
+    // 'https://dev.blocksafari.org/storage/data/'
+    'http://localhost:8092/storage/data/'
   ]);
   const erc1967Proxy = await ERC1967Proxy.deploy(
     nft.address,

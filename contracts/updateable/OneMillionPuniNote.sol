@@ -62,7 +62,7 @@ contract OneMillionPuniNote is ERC721EnumerableUpgradeable, OwnableUpgradeable, 
 
         return string(
             abi.encodePacked(
-                '<svg version="1.1" id="Image" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 286"><image id="image0" width="600" height="286" x="0" y="0" href="',
+                '<svg version="1.1" id="Image" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 286" width="600" height="286"><image id="image0" width="600" height="286" x="0" y="0" href="',
                 imageData,
                 '" /><foreignObject xmlns="http://www.w3.org/2000/svg" width="600" height="160" x="63" y="130"><html xmlns="http://www.w3.org/1999/xhtml"><b style="font-size:20px;color:#a86c0a;">',
                 padNumberWithZeros(tokenId),
@@ -105,9 +105,6 @@ contract OneMillionPuniNote is ERC721EnumerableUpgradeable, OwnableUpgradeable, 
         // 実行者が両替できるほどのコインを持っているか？
         require(IERC20Upgradeable(coin_token).balanceOf(msg.sender) >= depositValue, "lack of funds");
 
-        // 関数の実行前に、残っているGASの量を取得する
-        uint256 gasStart = gasleft();
-
         // 通貨の預入
         (bool success, ) = coin_token.call(abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", msg.sender, address(this), depositValue));
         require(success, "External function execution failed deposit");
@@ -130,15 +127,6 @@ contract OneMillionPuniNote is ERC721EnumerableUpgradeable, OwnableUpgradeable, 
                 safeMint(msg.sender);
             }
         }
-
-        // 関数が使用したGASの量を計算する
-        uint256 gasUsed = gasStart.sub(gasleft());
-
-        // 未使用のETHを返還する
-        uint256 refundAmount = msg.value.sub(gasUsed.mul(tx.gasprice));
-        if (refundAmount > 0) {
-            payable(msg.sender).transfer(refundAmount);
-        }
         emit Deposit(depositValue);
     }
 
@@ -152,8 +140,7 @@ contract OneMillionPuniNote is ERC721EnumerableUpgradeable, OwnableUpgradeable, 
         (, uint256 payout) = SafeMathUpgradeable.tryMul(_tokenIds.length, unit * (10 ** 18));
         require(payout > 0, "invalid amount");
         require(ERC20Upgradeable(coin_token).balanceOf(address(this)) >= payout, "lack of change");
-        // 関数の実行前に、残っているGASの量を取得する
-        uint256 gasStart = gasleft();
+
         for (uint i = 0; i < _tokenIds.length; i++) {
             require(ownerOf(_tokenIds[i]) == msg.sender, "you are not owner"); // 所有権確認
             _transfer(msg.sender, address(this), _tokenIds[i]); // 紙幣預入
@@ -165,14 +152,6 @@ contract OneMillionPuniNote is ERC721EnumerableUpgradeable, OwnableUpgradeable, 
         (bool success, ) = coin_token.call(abi.encodeWithSignature("externalTransferFrom(address,address,uint256)", address(this), msg.sender, payout));
         require(success, "External function execution failed payout");
 
-        // 関数が使用したGASの量を計算する
-        uint256 gasUsed = gasStart.sub(gasleft());
-
-        // 未使用のETHを返還する
-        uint256 refundAmount = msg.value.sub(gasUsed.mul(tx.gasprice));
-        if (refundAmount > 0) {
-            payable(msg.sender).transfer(refundAmount);
-        }
         emit Withdraw(payout);
     }
 

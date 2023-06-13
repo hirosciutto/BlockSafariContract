@@ -14,7 +14,7 @@ async function main() {
   await newImplementation.deployed();
 
   const Proxy = await hre.ethers.getContractFactory("OneMillionPuniNote");
-  const proxy = await Proxy.attach("0x2269bD05cb73809C5e3Aa0bFE3CdFF60c31B5853");
+  const proxy = await Proxy.attach("0xE90E33E1A3865344c174622aC93926C958249F0C");
   await proxy.upgradeTo(newImplementation.address);
 
   console.log('upgrade complete', newImplementation.address);
